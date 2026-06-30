@@ -1,23 +1,41 @@
 # Factor — Rastreamento de Tarefas
 
-## Milestone Atual: M2 — Batch multi-row
+## Milestone Atual: M3 — Melhoria com IA + diff
 
-### Backend (já pronto no M1)
-- [x] POST /reports/generate aceita `rows: list[...]` (multi-row)
-- [x] GET /reports/batch/{batch_id}/zip retorna ZIP
-
-### Backend (pequenas adições para M2)
-- [ ] Adicionar `row_label: str | None` ao modelo `GeneratedReport`
-- [ ] Popular `row_label` no endpoint de geração
+### Backend
+- [ ] `ai_providers/base.py` — Protocol `AiProvider` com método `improve_text(section_text, variables) -> str`
+- [ ] `ai_providers/ollama.py` — Ollama local (HTTP, sem chave)
+- [ ] `ai_providers/claude.py` — Anthropic Claude (httpx, chave via header)
+- [ ] `ai_providers/openai.py` — OpenAI (httpx, chave via header)
+- [ ] `ai_providers/groq.py` — Groq (httpx, chave via header)
+- [ ] `ai_providers/gemini.py` — Google Gemini (httpx, chave via header)
+- [ ] `diffing/word_diff.py` — diff word-level via `difflib.SequenceMatcher`
+- [ ] `POST /ai/improve` — recebe report_id + section_id + provider + api_key, devolve ai_text + diff
+- [ ] `GET /ai/providers` — lista provedores disponíveis (Ollama: verifica se está rodando)
+- [ ] `PATCH /reports/{id}/sections/{section_id}/accept` — marca ai_text como aceito
 
 ### Frontend
-- [ ] `BatchForm.tsx` — suporte a N linhas (botão "Adicionar caso", remover, cada linha tem seu próprio conjunto de campos)
-- [ ] `GenerationReview.tsx` — tabela com todas as linhas (row_label, status, link individual, botão ZIP de todos)
-- [ ] `api/types.ts` — adicionar `row_label` ao `GeneratedReport`
+- [ ] `AiImprove.tsx` — seletor de provedor (dropdown) + campo de API key (não persiste localmente)
+- [ ] `DiffView.tsx` — track-changes visual (verde = inserção, vermelho = remoção)
+- [ ] Integrar step 4+ no wizard: após geração, oferecer "Melhorar com IA"
+- [ ] Aceitar/rejeitar por seção + "aceitar tudo"
+
+### Electron (safeStorage)
+- [ ] IPC handler `store-api-key` / `get-api-key` usando `safeStorage.encryptString`
+- [ ] Frontend lê/escreve chaves via IPC (não via HTTP direto ao sidecar)
 
 ---
 
 ## Concluído
+
+### M2 — Batch multi-row ✅ (commit 1249627, push 2026-06-30)
+- [x] `BatchForm.tsx` — repetidor de N linhas, add/remove, collapsible por caso
+- [x] `GenerationReview.tsx` — tabela com row_label, link DOCX individual, botão ZIP
+- [x] `api/types.ts` — `row_label: string | null` em `GeneratedReport`
+- [x] `GeneratedReport` model — campo `row_label: Optional[str] = None`
+- [x] `/reports/generate` — propaga `row_label` do `ReportInputCreate` ao `GeneratedReport`
+- [x] ZIP export — usa `report_input.row_label` como arcname
+- [x] Testado end-to-end: 3 laudos com row_label correto (Caso 2026/001-003), ZIP com nomes certos
 
 ### M1 — Fluxo base (1 template, 1 laudo) ✅
 - [x] Monorepo: apps/desktop (Electron), apps/web (React+Vite), services/sidecar (FastAPI Python)
@@ -32,14 +50,6 @@
 ---
 
 ## Backlog
-
-### M3 — Melhoria com IA + diff
-- [ ] ai_providers/: base Protocol + Ollama, Claude, OpenAI, Groq, Gemini
-- [ ] diffing/word_diff.py (difflib.SequenceMatcher word-level)
-- [ ] POST /ai/improve, GET /ai/providers, PATCH bulk accept
-- [ ] AiImprove.tsx (seletor de provedor + API key)
-- [ ] DiffView.tsx (track-changes visual)
-- [ ] safeStorage Electron para API keys
 
 ### M4 — Multi-templates + packaging
 - [ ] Tela de lista/seleção de templates
