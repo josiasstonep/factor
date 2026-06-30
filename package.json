@@ -1,0 +1,19 @@
+{
+  "name": "factor",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/desktop",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently --names SIDECAR,WEB,ELECTRON -c blue,green,yellow \"npm run dev:sidecar\" \"npm run dev:web\" \"npm run dev:electron\"",
+    "dev:sidecar": "cd services/sidecar && .venv/Scripts/python.exe -m uvicorn sidecar.main:app --port 8731 --reload",
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:electron": "wait-on http://localhost:5173 && npm run dev --workspace apps/desktop"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "wait-on": "^8.0.2"
+  }
+}

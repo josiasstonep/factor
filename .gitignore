@@ -1,0 +1,46 @@
+# Python
+services/sidecar/.venv/
+services/sidecar/__pycache__/
+services/sidecar/sidecar/__pycache__/
+services/sidecar/sidecar/**/__pycache__/
+services/sidecar/*.egg-info/
+services/sidecar/dist/
+services/sidecar/build/
+services/sidecar/.data/
+services/sidecar/test_data_dir/
+services/sidecar/test_laudo.pdf
+services/sidecar/parse_result.json
+services/sidecar/confirm_payload.json
+services/sidecar/confirm_result.json
+services/sidecar/generate_payload.json
+services/sidecar/generate_result.json
+services/sidecar/test_output.docx
+services/sidecar/debug_out.json
+*.pyc
+*.pyo
+.env
+
+# Node
+node_modules/
+apps/web/dist/
+apps/desktop/dist/
+apps/desktop/node_modules/
+apps/web/node_modules/
+
+# Electron build output
+dist/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*

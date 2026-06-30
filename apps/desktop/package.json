@@ -1,0 +1,16 @@
+{
+  "name": "factor-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json && electron dist/main.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "electron": "^33.4.11",
+    "typescript": "^5.8.3"
+  }
+}

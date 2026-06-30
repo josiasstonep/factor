@@ -1,0 +1,28 @@
+[project]
+name = "factor-sidecar"
+version = "0.1.0"
+description = "Python sidecar (FastAPI) for PDF parsing and DOCX generation"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.32,<0.33",
+    "pydantic>=2.9,<3",
+    "python-multipart>=0.0.12,<0.1",
+    "sqlalchemy>=2.0,<3",
+    "pymupdf>=1.24,<2",
+    "pdfplumber>=0.11,<0.12",
+    "rapidfuzz>=3.10,<4",
+    "docxtpl>=0.18,<0.19",
+    "python-docx>=1.1,<2",
+    "Pillow>=10.4,<11",
+    "httpx>=0.27,<0.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "pyinstaller>=6.10,<7",
+]
+
+[tool.setuptools]
+packages = ["sidecar"]
