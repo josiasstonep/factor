@@ -24,6 +24,7 @@ class GeneratedReport(BaseModel):
     batch_id: str
     report_input_id: str
     template_id: str
+    row_label: Optional[str] = None
     docx_path: str
     sections: list[GeneratedSection] = Field(default_factory=list)
     status: Literal["generated", "ai_pending", "ai_reviewed", "exported"] = "generated"

@@ -67,6 +67,7 @@ async def generate_batch(payload: GenerateBatchRequest):
             batch_id=batch_id,
             report_input_id=report_input.id,
             template_id=template.id,
+            row_label=row.row_label,
             docx_path=str(output_path),
             sections=[
                 GeneratedSection(

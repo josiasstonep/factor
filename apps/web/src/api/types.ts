@@ -80,6 +80,7 @@ export interface GeneratedReport {
   batch_id: string;
   report_input_id: string;
   template_id: string;
+  row_label: string | null;
   docx_path: string;
   sections: GeneratedSection[];
   status: "generated" | "ai_pending" | "ai_reviewed" | "exported";
