@@ -19,5 +19,17 @@ def slugify(text: str) -> str:
     return ascii_text or "campo"
 
 
+_PT_LOWERCASE = frozenset([
+    "a", "e", "o", "de", "da", "do", "das", "dos", "em", "na", "no",
+    "nas", "nos", "ao", "aos", "para", "por", "com",
+])
+
+
 def title_case_label(text: str) -> str:
-    return " ".join(w.capitalize() for w in text.strip().split())
+    words = text.strip().split()
+    result = []
+    for i, w in enumerate(words):
+        lower = w.lower()
+        # Prepositions/articles stay lowercase unless they are the first word
+        result.append(w.capitalize() if (i == 0 or lower not in _PT_LOWERCASE) else lower)
+    return " ".join(result)

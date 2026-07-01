@@ -164,6 +164,14 @@ IGNORED_HEADING_FRAGMENTS: list[str] = [
     # Figure captions ("Figura 01 -", "Figure 01 -") are not sections
     "figura ",
     "figure ",
+    # Forensic tool names that appear in bold but are NOT chapter headings
+    "cellebrite",
+    "ufed",
+    "physical analyzer",
+    "inseyets",
+    "oxygen forensic",
+    "magnet axiom",
+    "ufdr",
 ]
 
 FUZZY_THRESHOLD = 78
@@ -228,12 +236,11 @@ def detect_sections(lines: list[PdfLine]) -> list[TemplateSection]:
             if any(frag in norm for frag in IGNORED_HEADING_FRAGMENTS):
                 continue
             sec_type = _classify(line.text) or SectionType.CUSTOM
-            label = title_case_label(line.text) if sec_type == SectionType.CUSTOM else {
-                SectionType.HISTORIA: "Historia",
-                SectionType.DESCRICAO: "Descricao",
-                SectionType.ANALISE: "Analise",
-                SectionType.CONCLUSAO: "Conclusao",
-            }[sec_type]
+            # Strip leading "N." / "N) " number prefix (e.g. "3. Objetivo" -> "Objetivo")
+            clean_text = _re.sub(r'^\d+[\.\)]\s*', '', line.text).strip()
+            # Use the actual heading text (title-cased) as label so each section has
+            # a unique, meaningful name — avoids three sections all labeled "Análise".
+            label = title_case_label(clean_text)
             sections.append(
                 TemplateSection(
                     id=str(uuid4()),
