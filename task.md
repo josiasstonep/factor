@@ -71,6 +71,48 @@ Todos os milestones foram concluídos. O aplicativo está pronto para uso e empa
    npm run dev
    ```
 
+---
+
+## Em andamento — Refinamento do Preview e Qualidade do Laudo
+
+### Concluído nesta sessão ✅
+- [x] DOCX: Arial 12pt, espaçamento 1.5, margens A4, inicia em HISTÓRICO sem título avulso
+- [x] Extração automática de cabeçalho/rodapé do PDF via PyMuPDF (top 11%, bottom 9%)
+- [x] TemplateStructureEditor: upload manual de cabeçalho/rodapé + preview das imagens extraídas
+- [x] BatchForm: exibe cabeçalho institucional real (imagem) no preview do documento
+- [x] Fix vestígio regex: exige hex+traço — elimina falso positivo em palavras como "lacrado"
+- [x] Fix campos de variáveis: iniciam **vazios** (usuário preenche com dados do novo caso)
+- [x] Fix `resolveVars`: fallback mostra `[Rótulo]` quando campo vazio
+- [x] Fix Ofício: `injectPlaceholders` usa regex `\s+` para tolerar quebras de linha do PDF
+- [x] Migration DB: `{{oficio}}` injetado corretamente na seção História
+- [x] Placeholder nos inputs de variável: `ex: 11 (86414402)`, `ex: 74C5AC5E-4`, etc.
+- [x] Migration DB: rótulos das seções corrigidos para os 8 capítulos reais do laudo:
+  1. Histórico
+  2. Material Recebido para Análise
+  3. Objetivo
+  4. Condições Gerais
+  5. Aquisição e Preservação dos Dados Digitais
+  6. Análise Forense dos Dados Extraídos
+  7. Verificação de Integridade dos Arquivos
+  8. Conclusão
+- [x] Migration DB: removida seção falsa "Figura 01…" detectada erroneamente como capítulo
+- [x] Preview formatado para parecer com o laudo real:
+  - Arial 12px / line-height 1.5 em todo o `.doc-paper`
+  - Texto justificado + recuo de 1.25cm nos parágrafos (como Word)
+  - Headings no formato `N.  TÍTULO` (sem badge circular colorido)
+  - Fundo branco transparente nas seções (sem cinza)
+  - Cor do texto #000 (preto puro)
+
+### Pendente — Próxima sessão ⏳
+- [ ] Testar preview com dados reais preenchidos (Vestígio, Lacre, Ofício, SEI)
+  e verificar que a substituição em tempo real funciona para todos os campos
+- [ ] Aguardar laudo completo do usuário como referência visual e ajustar
+  formatação/estrutura conforme necessário
+- [ ] Verificar se a geração do DOCX (skeleton + render) produz output com Arial 12pt
+  correto, parágrafo justificado e recuo — comparar com o PDF de referência
+
+---
+
 ## Melhorias Futuras (pós-V1)
 
 - Suporte a DOCX customizado do usuário (layout avançado) como esqueleto alternativo

@@ -4,6 +4,16 @@ import type { GenerateBatchResponse, ReportInputCreate, Template, TemplateVariab
 
 const SIDECAR_PORT = 8731;
 
+const VARIABLE_HINTS: Record<string, string> = {
+  oficio: "ex: 11 (86414402)",
+  sei: "ex: 3900000825.000159/2026-68",
+  vestigio: "ex: 74C5AC5E-4",
+  lacre: "ex: 1343769",
+  rep: "ex: 28203/2026",
+  processo: "ex: 0000152-35.2026.8.17.2250",
+  marca: "ex: XIAOMI, SAMSUNG, APPLE",
+};
+
 interface Props {
   template: Template;
   onGenerated: (result: GenerateBatchResponse) => void;
@@ -29,7 +39,10 @@ function injectPlaceholders(text: string, variables: TemplateVariable[]): string
   for (const v of variables) {
     const val = v.source_value_detected ?? "";
     if (val.length < 6) continue;
-    result = result.replaceAll(val, `{{${v.key}}}`);
+    // Build a regex that matches the value with any whitespace between tokens
+    // (PDFs often insert newlines mid-value when extracted)
+    const escaped = val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    result = result.replace(new RegExp(escaped, "g"), `{{${v.key}}}`);
   }
   return result;
 }
@@ -243,6 +256,7 @@ export default function BatchForm({ template, onGenerated }: Props) {
                       type="text"
                       className="doc-var-input"
                       value={row.variableValues[v.id] ?? ""}
+                      placeholder={VARIABLE_HINTS[v.key] ?? ""}
                       onChange={(e) =>
                         updateRow(row.rowId, {
                           variableValues: { ...row.variableValues, [v.id]: e.target.value },
@@ -265,12 +279,12 @@ export default function BatchForm({ template, onGenerated }: Props) {
           return (
             <div className="doc-section" key={s.id}>
               <div className="doc-section-heading">
-                <span className="doc-section-number">{idx + 1}</span>
+                <span className="doc-section-number">{idx + 1}.</span>
                 {s.label.toUpperCase()}
                 <button
                   type="button"
                   className="secondary"
-                  style={{ marginLeft: "auto", padding: "2px 10px", fontSize: 11, fontWeight: 600 }}
+                  style={{ marginLeft: "auto", padding: "2px 10px", fontSize: 11, fontWeight: 600, textTransform: "none", letterSpacing: 0, flexShrink: 0 }}
                   onClick={() =>
                     setEditingSections((prev) => ({ ...prev, [s.id]: !isEditing }))
                   }
@@ -300,13 +314,13 @@ export default function BatchForm({ template, onGenerated }: Props) {
                   title="Clique para editar"
                 >
                   {rendered
-                    ? rendered.split("\n").map((line, i) =>
-                        line.trim() ? (
-                          <p key={i} style={{ margin: "0 0 10px" }}>
-                            {line}
-                          </p>
-                        ) : null,
-                      )
+                    ? rendered.split("\n").map((line, i) => {
+                        if (!line.trim()) return null;
+                        const isQuote = line.trimStart().startsWith('"') || line.trimStart().startsWith('"') || line.trimStart().startsWith('"[');
+                        return isQuote
+                          ? <p key={i} className="doc-section-quote">{line}</p>
+                          : <p key={i}>{line}</p>;
+                      })
                     : <span className="doc-section-empty">Clique para digitar o conteúdo desta seção…</span>}
                 </div>
               )}

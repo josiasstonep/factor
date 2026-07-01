@@ -290,10 +290,14 @@ tr:last-child td { border-bottom: none; }
 .doc-paper {
   background: #fff;
   box-shadow: 0 4px 24px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06);
-  padding: 48px 56px 56px;
+  padding: 44px 64px 60px;
   min-height: 640px;
   border-radius: 0 8px 8px 8px;
   position: relative;
+  font-family: "Arial", "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #000;
 }
 
 /* Institutional header strip */
@@ -397,7 +401,9 @@ tr:last-child td { border-bottom: none; }
 .doc-var-input {
   border: none !important;
   background: transparent !important;
+  font-family: inherit !important;
   font-size: 12px !important;
+  line-height: 1.5 !important;
   padding: 0 !important;
   box-shadow: none !important;
   color: var(--c-text);
@@ -409,46 +415,48 @@ tr:last-child td { border-bottom: none; }
   border-radius: 3px;
 }
 
-/* Section headings */
-.doc-section { margin-bottom: 24px; }
+/* Section headings — styled like the real laudo (bold uppercase, plain numbered) */
+.doc-section { margin-bottom: 20px; }
 .doc-section-heading {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--c-primary);
-  padding: 6px 0 6px;
-  border-bottom: 1.5px solid var(--c-primary);
-  margin-bottom: 10px;
+  letter-spacing: 0;
+  color: #000;
+  padding: 18px 0 6px;
+  border-bottom: none;
+  margin-bottom: 6px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: baseline;
+  gap: 0;
 }
 .doc-section-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: var(--c-primary);
-  color: #fff;
-  border-radius: 50%;
-  font-size: 10px;
+  /* Plain inline number, no circle badge */
+  display: inline;
+  background: none;
+  color: inherit;
+  border-radius: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  width: auto;
+  height: auto;
   flex-shrink: 0;
+  margin-right: 6px;
 }
 
 .doc-textarea {
   width: 100%;
   border: none !important;
   border-radius: 4px;
-  font-family: "Arial", "Helvetica Neue", sans-serif;
+  font-family: inherit;
   font-size: 12px;
   line-height: 1.5;
+  text-align: justify;
   resize: vertical;
   min-height: 120px;
-  padding: 10px 12px !important;
-  background: #fafafa !important;
-  color: var(--c-text);
+  padding: 8px 6px !important;
+  background: #f8faff !important;
+  color: #000;
   box-shadow: none !important;
   transition: background 0.15s;
 }
@@ -502,25 +510,40 @@ tr:last-child td { border-bottom: none; }
 
 /* Section preview (read-only rendered view, click to edit) */
 .doc-section-preview {
-  font-family: "Arial", "Helvetica Neue", sans-serif;
+  font-family: inherit;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--c-text);
-  padding: 10px 12px;
-  background: #fafafa;
+  color: #000;
+  text-align: justify;
+  padding: 4px 6px;
+  background: transparent;
   border-radius: 4px;
   cursor: text;
-  min-height: 80px;
-  transition: background 0.15s;
+  min-height: 60px;
+  transition: background 0.15s, outline 0.15s;
 }
 .doc-section-preview:hover {
   background: #f0f4ff;
   outline: 2px dashed #93c5fd;
 }
-.doc-section-preview p { margin: 0 0 10px; }
+.doc-section-preview p {
+  margin: 0;
+  text-indent: 1.25cm;
+  line-height: 1.5;
+}
+.doc-section-preview p + p { margin-top: 0; }
+/* Quoted/cited block — indented left+right, no first-line indent (like Word blockquote) */
+.doc-section-preview p.doc-section-quote {
+  text-indent: 0;
+  margin-left: 2cm;
+  margin-right: 2cm;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
 .doc-section-empty {
   color: #9ca3af;
   font-style: italic;
+  text-indent: 0;
 }
 
 /* Variable placeholder highlight inside preview */

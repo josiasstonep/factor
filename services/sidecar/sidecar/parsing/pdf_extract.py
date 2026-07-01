@@ -11,6 +11,7 @@ class PdfLine:
     size: float
     bold: bool
     bbox: tuple[float, float, float, float]  # x0, y0, x1, y1
+    block_start: bool = False  # True for the first line of each PDF block (= paragraph boundary)
 
 
 @dataclass
@@ -46,7 +47,8 @@ def extract(pdf_path: Path) -> PdfExtraction:
         for block in page_dict.get("blocks", []):
             if block.get("type") != 0:
                 continue
-            for line in block.get("lines", []):
+            block_lines = block.get("lines", [])
+            for line_idx, line in enumerate(block_lines):
                 spans = line.get("spans", [])
                 if not spans:
                     continue
@@ -67,6 +69,7 @@ def extract(pdf_path: Path) -> PdfExtraction:
                         size=round(dominant.get("size", 0.0), 1),
                         bold=_is_bold(dominant),
                         bbox=(x0, y0, x1, y1),
+                        block_start=line_idx == 0,
                     )
                 )
 

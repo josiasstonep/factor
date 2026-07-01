@@ -88,8 +88,8 @@ INSTITUTIONAL_BLOCKLIST: set[str] = {
 INLINE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # SEI nº 3900000825.000159/2026-68
     (re.compile(r'\bSEI\s+n[°º]\s*([\d./-]{10,})', re.IGNORECASE), "sei", "SEI nº"),
-    # Ofício 11 (86414402) or Ofício 85219959/2026
-    (re.compile(r'\bOf[íi]cio\s+([\w./-]+(?:\s*\(\s*\w+\s*\))?)', re.IGNORECASE), "oficio", "Ofício"),
+    # Ofício 11 (86414402) or Ofício 85219959/2026 — capture "num (num)" as one value
+    (re.compile(r'\bOf[íi]cio\s+(\d[\w./-]*(?:\s*\(\s*\w+\s*\))?)', re.IGNORECASE), "oficio", "Ofício"),
     # Vestígio 74C5AC5E-4 or B3A4274B-2 — must be hex chars with a dash (rules out words like "lacrado")
     (re.compile(r'\bVest[íi]gio\s+([A-F0-9]{4,}-[A-F0-9-]+)', re.IGNORECASE), "vestigio", "Vestígio"),
     # Processo nº 0000152-35.2026.8.17.2250

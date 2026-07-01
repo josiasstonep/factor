@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,7 +47,11 @@ def _inject_placeholders(
             val = (var.source_value_detected or "").strip()
             if len(val) < 6:
                 continue
-            text = text.replace(val, f"{{{{{var.key}}}}}")
+            # Match value with any whitespace between tokens (PDF extraction often
+            # inserts newlines mid-value)
+            escaped = re.escape(val)
+            pattern = re.sub(r"\\ ", r"\\s+", escaped)
+            text = re.sub(pattern, f"{{{{{var.key}}}}}", text)
         section.default_text = text
 
 
