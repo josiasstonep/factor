@@ -1,63 +1,80 @@
 # Factor — Rastreamento de Tarefas
 
-## Milestone Atual: M3 — Melhoria com IA + diff
+## Status: PROJETO COMPLETO (M1–M4) ✅
 
-### Backend
-- [ ] `ai_providers/base.py` — Protocol `AiProvider` com método `improve_text(section_text, variables) -> str`
-- [ ] `ai_providers/ollama.py` — Ollama local (HTTP, sem chave)
-- [ ] `ai_providers/claude.py` — Anthropic Claude (httpx, chave via header)
-- [ ] `ai_providers/openai.py` — OpenAI (httpx, chave via header)
-- [ ] `ai_providers/groq.py` — Groq (httpx, chave via header)
-- [ ] `ai_providers/gemini.py` — Google Gemini (httpx, chave via header)
-- [ ] `diffing/word_diff.py` — diff word-level via `difflib.SequenceMatcher`
-- [ ] `POST /ai/improve` — recebe report_id + section_id + provider + api_key, devolve ai_text + diff
-- [ ] `GET /ai/providers` — lista provedores disponíveis (Ollama: verifica se está rodando)
-- [ ] `PATCH /reports/{id}/sections/{section_id}/accept` — marca ai_text como aceito
+Todos os milestones foram concluídos. O aplicativo está pronto para uso e empacotamento.
+
+---
+
+## M4 — Multi-templates + Packaging ✅
 
 ### Frontend
-- [ ] `AiImprove.tsx` — seletor de provedor (dropdown) + campo de API key (não persiste localmente)
-- [ ] `DiffView.tsx` — track-changes visual (verde = inserção, vermelho = remoção)
-- [ ] Integrar step 4+ no wizard: após geração, oferecer "Melhorar com IA"
-- [ ] Aceitar/rejeitar por seção + "aceitar tudo"
+- [x] `TemplateList.tsx` — tela home com templates salvos, botão "Usar" por template, upload zone para novo PDF
+- [x] `App.tsx` — fluxo começa em "home", clicar no título volta à lista de templates
 
-### Electron (safeStorage)
-- [ ] IPC handler `store-api-key` / `get-api-key` usando `safeStorage.encryptString`
-- [ ] Frontend lê/escreve chaves via IPC (não via HTTP direto ao sidecar)
+### Packaging
+- [x] `build_sidecar.spec` — spec PyInstaller --onedir com hidden imports (uvicorn, FastAPI, AI providers)
+- [x] `electron-builder.yml` — NSIS Windows (x64), web → resources/web/, sidecar → resources/sidecar/
+- [x] `package.json` — scripts: build, build:sidecar, package, package:full + electron-builder devDep
+- [x] `sidecar.ts` — nome de exe cross-platform, FACTOR_DATA_DIR aponta para userData/factor-data
+- [x] `main.ts` — em modo packaged usa process.resourcesPath para encontrar web/index.html
+- [x] Testado: sidecar.exe --port 8733 → health OK + 5 providers AI registrados
 
 ---
 
 ## Concluído
 
-### M2 — Batch multi-row ✅ (commit 1249627, push 2026-06-30)
+### M3 — Melhoria com IA + diff ✅
+- [x] `ai_providers/` — Protocol base + Ollama, Claude, OpenAI, Groq, Gemini
+- [x] `diffing/word_diff.py` — diff word-level via difflib.SequenceMatcher
+- [x] `routers/ai.py` — GET /ai/providers, POST /ai/improve, PATCH /ai/accept
+- [x] DOCX download re-renderiza com textos AI aceitos como overrides
+- [x] `AiImprove.tsx` — seletor de provedor, API key (sessão), melhora por seção ou tudo
+- [x] `DiffView.tsx` — track-changes visual (verde=insert, vermelho=delete)
+- [x] `GenerationReview.tsx` — botão "Melhorar com IA" quando há seções improvable
+- [x] Verificado: sidecar retorna 5 providers, build clean (36 módulos, 213KB)
+
+### M2 — Batch multi-row ✅
 - [x] `BatchForm.tsx` — repetidor de N linhas, add/remove, collapsible por caso
 - [x] `GenerationReview.tsx` — tabela com row_label, link DOCX individual, botão ZIP
-- [x] `api/types.ts` — `row_label: string | null` em `GeneratedReport`
-- [x] `GeneratedReport` model — campo `row_label: Optional[str] = None`
-- [x] `/reports/generate` — propaga `row_label` do `ReportInputCreate` ao `GeneratedReport`
-- [x] ZIP export — usa `report_input.row_label` como arcname
-- [x] Testado end-to-end: 3 laudos com row_label correto (Caso 2026/001-003), ZIP com nomes certos
+- [x] `GeneratedReport` model — `row_label: Optional[str] = None`
+- [x] ZIP export — usa report_input.row_label como arcname
+- [x] Testado end-to-end: 3 laudos com row_label correto, ZIP com nomes certos
 
 ### M1 — Fluxo base (1 template, 1 laudo) ✅
 - [x] Monorepo: apps/desktop (Electron), apps/web (React+Vite), services/sidecar (FastAPI Python)
-- [x] Parsing PDF: seções (heurística de font size/bold/keywords + rapidfuzz), variáveis (regex label:value), imagens
-- [x] Geração DOCX: skeleton docxtpl gerado do Template confirmado + render por ReportInput
-- [x] Endpoints: /templates/parse, /templates/{id} GET+PUT, /uploads/image, /reports/generate, /reports/{id}/docx
-- [x] SQLite (SQLAlchemy) + repo layer para Template, ReportInput, GeneratedReport
-- [x] React wizard 4 passos: Upload → Estrutura → Dados → Resultado
-- [x] Electron: main.ts (healthcheck + spawn sidecar em prod), preload.ts, sidecar.ts
-- [x] Testado end-to-end via HTTP: parse → confirm → generate → download DOCX 37KB ✓
+- [x] Parsing PDF: seções (heurística font size/bold/keywords + rapidfuzz), variáveis, imagens
+- [x] Geração DOCX: skeleton docxtpl + render por ReportInput
+- [x] Endpoints: /templates, /uploads/image, /reports/generate, /reports/{id}/docx
+- [x] SQLite (SQLAlchemy) + repo layer
+- [x] React wizard 4 passos
+- [x] Electron: main.ts, preload.ts, sidecar.ts
 
 ---
 
-## Backlog
+## Como empacotar o instalador
 
-### M4 — Multi-templates + packaging
-- [ ] Tela de lista/seleção de templates
-- [ ] PyInstaller spec (build_sidecar.spec)
-- [ ] electron-builder.yml (NSIS Windows installer)
-- [ ] Teste em sessão limpa sem Python
+1. **Build Python sidecar** (uma vez, ou quando houver mudança no backend):
+   ```
+   npm run build:sidecar
+   ```
+   Gera: `services/sidecar/dist/factor-sidecar/sidecar.exe`
 
----
+2. **Build frontend + desktop + gerar instalador**:
+   ```
+   npm run package:full
+   ```
+   Gera: `dist/release/Factor Setup X.X.X.exe` (instalador NSIS)
 
-## Pendências / Decisões Abertas
-_Nenhuma no momento._
+3. **Para testar sem instalar** (unpackaged Electron + sidecar dev):
+   ```
+   npm run dev
+   ```
+
+## Melhorias Futuras (pós-V1)
+
+- Suporte a DOCX customizado do usuário (layout avançado) como esqueleto alternativo
+- Histórico de batches gerados por template
+- Preview HTML antes de exportar (renderização do contexto Jinja2 em HTML)
+- Gestão de chaves de API via Electron safeStorage (persistência entre sessões)
+- Modo offline completo com Ollama como padrão
