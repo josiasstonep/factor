@@ -1,0 +1,46 @@
+appId: com.factor.laudos
+productName: Factor
+copyright: "Copyright © 2025"
+
+directories:
+  app: apps/desktop
+  output: dist/release
+
+# Files included from apps/desktop/ into resources/app/
+files:
+  - dist/**
+  - package.json
+  - node_modules/**
+
+# Extra files placed in resources/ (outside app asar)
+extraResources:
+  # Web frontend build → resources/web/
+  - from: apps/web/dist
+    to: web
+    filter:
+      - "**/*"
+  # PyInstaller sidecar bundle → resources/sidecar/
+  - from: services/sidecar/dist/factor-sidecar
+    to: sidecar
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  deleteAppDataOnUninstall: false
+
+mac:
+  target: dmg
+  category: public.app-category.productivity
+
+linux:
+  target: AppImage

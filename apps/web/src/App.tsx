@@ -3,12 +3,14 @@ import type { GenerateBatchResponse, Template } from "./api/types";
 import AiImprove from "./routes/AiImprove";
 import BatchForm from "./routes/BatchForm";
 import GenerationReview from "./routes/GenerationReview";
+import TemplateList from "./routes/TemplateList";
 import TemplateStructureEditor from "./routes/TemplateStructureEditor";
 import TemplateUpload from "./routes/TemplateUpload";
 
-type Step = "upload" | "structure" | "form" | "review" | "ai";
+// "home" is the template-selection screen (not part of the numbered wizard steps)
+type Step = "home" | "upload" | "structure" | "form" | "review" | "ai";
 
-const STEP_ORDER: { key: Step; label: string }[] = [
+const WIZARD_STEPS: { key: Step; label: string }[] = [
   { key: "upload", label: "1. Upload" },
   { key: "structure", label: "2. Estrutura" },
   { key: "form", label: "3. Dados" },
@@ -17,12 +19,12 @@ const STEP_ORDER: { key: Step; label: string }[] = [
 ];
 
 export default function App() {
-  const [step, setStep] = useState<Step>("upload");
+  const [step, setStep] = useState<Step>("home");
   const [template, setTemplate] = useState<Template | null>(null);
   const [result, setResult] = useState<GenerateBatchResponse | null>(null);
 
   function stepStatus(key: Step): "active" | "done" | "" {
-    const order = STEP_ORDER.map((s) => s.key);
+    const order = WIZARD_STEPS.map((s) => s.key);
     const current = order.indexOf(step);
     const target = order.indexOf(key);
     if (target === current) return "active";
@@ -30,23 +32,49 @@ export default function App() {
     return "";
   }
 
-  // Set of section IDs that are marked is_ai_improvable on the current template
   const aiImprovableSectionIds = new Set(
     (template?.sections ?? [])
       .filter((s) => s.is_ai_improvable)
       .map((s) => s.id),
   );
 
+  const showWizard = step !== "home";
+
   return (
     <div className="app-shell">
-      <h1>Factor — Gerador de Laudos Periciais</h1>
-      <div className="steps">
-        {STEP_ORDER.map((s) => (
-          <span key={s.key} className={`step-chip ${stepStatus(s.key)}`}>
-            {s.label}
-          </span>
-        ))}
-      </div>
+      <h1 style={{ cursor: showWizard ? "pointer" : "default" }} onClick={() => {
+        if (showWizard) {
+          setTemplate(null);
+          setResult(null);
+          setStep("home");
+        }
+      }}>
+        Factor — Gerador de Laudos Periciais
+      </h1>
+
+      {showWizard && (
+        <div className="steps">
+          {WIZARD_STEPS.map((s) => (
+            <span key={s.key} className={`step-chip ${stepStatus(s.key)}`}>
+              {s.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {step === "home" && (
+        <TemplateList
+          onSelect={(t) => {
+            setTemplate(t);
+            setResult(null);
+            setStep("form");
+          }}
+          onUploadNew={(draft) => {
+            setTemplate(draft);
+            setStep("structure");
+          }}
+        />
+      )}
 
       {step === "upload" && (
         <TemplateUpload
@@ -83,9 +111,8 @@ export default function App() {
           hasAiImprovable={aiImprovableSectionIds.size > 0}
           onImproveWithAi={() => setStep("ai")}
           onStartOver={() => {
-            setTemplate(null);
             setResult(null);
-            setStep("upload");
+            setStep("home");
           }}
         />
       )}

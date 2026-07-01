@@ -24,7 +24,7 @@ async function createWindow(): Promise<void> {
   });
 
   if (app.isPackaged) {
-    void mainWindow.loadFile(path.join(__dirname, "../../web/dist/index.html"));
+    void mainWindow.loadFile(path.join(process.resourcesPath, "web", "index.html"));
   } else {
     void mainWindow.loadURL("http://localhost:5173");
   }
