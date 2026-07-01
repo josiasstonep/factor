@@ -104,6 +104,14 @@ export default function BatchForm({ template, onGenerated }: Props) {
 
   const sortedSections = template.sections.slice().sort((a, b) => a.order - b.order);
 
+  // Group image placeholders by section_id for inline rendering
+  const imagesBySectionId = template.image_placeholders.reduce<Record<string, typeof template.image_placeholders>>((acc, p) => {
+    const key = p.section_id ?? "__orphan__";
+    acc[key] = [...(acc[key] ?? []), p];
+    return acc;
+  }, {});
+  const orphanImages = imagesBySectionId["__orphan__"] ?? [];
+
   function updateRow(rowId: string, patch: Partial<RowState>) {
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
   }
@@ -275,6 +283,7 @@ export default function BatchForm({ template, onGenerated }: Props) {
           const isEditing = editingSections[s.id] ?? false;
           const rawText = row.sectionTexts[s.id] ?? "";
           const rendered = resolveVars(rawText, template, row.variableValues);
+          const sectionImages = imagesBySectionId[s.id] ?? [];
 
           return (
             <div className="doc-section" key={s.id}>
@@ -324,19 +333,34 @@ export default function BatchForm({ template, onGenerated }: Props) {
                     : <span className="doc-section-empty">Clique para digitar o conteúdo desta seção…</span>}
                 </div>
               )}
+
+              {/* Image upload zones for images belonging to this section */}
+              {sectionImages.length > 0 && (
+                <div className="doc-images">
+                  {sectionImages.map((p) => (
+                    <ImageZone
+                      key={p.id}
+                      label={p.label}
+                      uploading={row.uploadingId === p.id}
+                      previewUrl={row.imagePreviewUrls[p.id] ?? null}
+                      onFile={(file) => void handleImageChange(row.rowId, p.id, file)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
 
-        {/* ── Images ── */}
-        {template.image_placeholders.length > 0 && (
+        {/* ── Orphan images (no section assigned) ── */}
+        {orphanImages.length > 0 && (
           <div className="doc-section">
             <div className="doc-section-heading">
               <span className="doc-section-number">{sortedSections.length + 1}</span>
               IMAGENS / ANEXOS
             </div>
             <div className="doc-images">
-              {template.image_placeholders.map((p) => (
+              {orphanImages.map((p) => (
                 <ImageZone
                   key={p.id}
                   label={p.label}

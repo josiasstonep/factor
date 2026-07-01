@@ -46,6 +46,7 @@ class TemplateImagePlaceholder(BaseModel):
     order: int
     max_count: int = 1
     page_hint: Optional[int] = None
+    section_id: Optional[str] = None  # section this image belongs to; None = orphan (appended at end)
 
 
 class Template(BaseModel):

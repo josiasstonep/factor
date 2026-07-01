@@ -28,6 +28,7 @@ export interface TemplateImagePlaceholder {
   order: number;
   max_count: number;
   page_hint: number | null;
+  section_id?: string | null;
 }
 
 export interface Template {

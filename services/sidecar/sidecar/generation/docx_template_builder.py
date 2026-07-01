@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pathlib import Path
 
 from docx import Document
@@ -5,7 +6,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.shared import Cm, Mm, Pt
 
 from sidecar.generation.context_keys import image_key, section_key
-from sidecar.models.template import Template
+from sidecar.models.template import Template, TemplateImagePlaceholder
 
 _CONTENT_WIDTH = Mm(210) - Cm(3.0) - Cm(2.0)  # A4 minus margins
 
@@ -96,6 +97,22 @@ def _body_para(doc: Document, text: str) -> None:
         run.font.size = Pt(12)
 
 
+def _add_image_placeholder(doc: Document, placeholder: TemplateImagePlaceholder) -> None:
+    caption = doc.add_paragraph()
+    caption.paragraph_format.space_before = Pt(12)
+    caption.paragraph_format.space_after = Pt(4)
+    caption.paragraph_format.first_line_indent = Pt(0)
+    caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = caption.add_run(placeholder.label)
+    r.bold = True
+    r.font.name = "Arial"
+    r.font.size = Pt(10)
+    img_para = doc.add_paragraph("{{ " + image_key(placeholder) + " }}")
+    img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    img_para.paragraph_format.first_line_indent = Pt(0)
+    img_para.paragraph_format.space_after = Pt(12)
+
+
 def build_skeleton(template: Template, output_path: Path) -> Path:
     doc = Document()
     _apply_global_style(doc)
@@ -107,20 +124,24 @@ def build_skeleton(template: Template, output_path: Path) -> Path:
     if template.footer_image_path:
         _add_footer_image(doc, template.footer_image_path)
 
-    # Sections — start from HISTÓRICO (variables are substituted inline in section text)
+    # Group image placeholders by section_id; images without section_id go at the end
+    images_by_section: dict[str, list[TemplateImagePlaceholder]] = defaultdict(list)
+    orphan_images: list[TemplateImagePlaceholder] = []
+    for p in sorted(template.image_placeholders, key=lambda p: p.order):
+        if p.section_id:
+            images_by_section[p.section_id].append(p)
+        else:
+            orphan_images.append(p)
+
     for section in sorted(template.sections, key=lambda s: s.order):
         _heading_para(doc, section.label)
         _body_para(doc, "{{ " + section_key(section) + " }}")
+        for placeholder in images_by_section.get(section.id, []):
+            _add_image_placeholder(doc, placeholder)
 
-    # Image placeholders inline within document flow
-    for placeholder in sorted(template.image_placeholders, key=lambda p: p.order):
-        caption = doc.add_paragraph()
-        caption.paragraph_format.space_before = Pt(12)
-        r = caption.add_run(placeholder.label)
-        r.bold = True
-        r.font.name = "Arial"
-        r.font.size = Pt(10)
-        _body_para(doc, "{{ " + image_key(placeholder) + " }}")
+    # Orphan placeholders (no section_id) appended at the end
+    for placeholder in orphan_images:
+        _add_image_placeholder(doc, placeholder)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(output_path)
