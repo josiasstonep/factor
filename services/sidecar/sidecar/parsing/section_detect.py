@@ -15,10 +15,42 @@ SECTION_KEYWORDS: dict[SectionType, list[str]] = {
         "material examinado",
         "vestigios examinados",
         "objeto do exame",
+        "material recebido",
+        "material para analise",
+        "vestigio recebido",
+        "objeto periciado",
+        "material recebido para analise",
     ],
-    SectionType.ANALISE: ["analise", "discussao", "comentarios", "fundamentacao"],
+    SectionType.ANALISE: [
+        "analise",
+        "discussao",
+        "comentarios",
+        "fundamentacao",
+        "analise forense",
+        "dados extraidos",
+        "aquisicao",
+        "preservacao",
+        "verificacao de integridade",
+        "integridade dos arquivos",
+        "aquisicao e preservacao",
+        "analise forense dos dados",
+        "verificacao de integridade dos arquivos",
+    ],
     SectionType.CONCLUSAO: ["conclusao", "conclusoes", "considerac"],
 }
+
+# Only skip lines that are PURE institutional boilerplate (letterhead/footer).
+# Real laudo sections like "OBJETIVO" and "CONDIÇÕES GERAIS" must NOT be here.
+IGNORED_HEADING_FRAGMENTS: list[str] = [
+    "secretaria de defesa",
+    "gerencia geral de policia",
+    "gerencia de policia cientifica",
+    "unidade regional de policia",
+    "governo do estado",
+    "instituto de criminalistica",
+    "assinado eletronicamente",
+    "documento assinado",
+]
 
 FUZZY_THRESHOLD = 78
 MAX_HEADING_WORDS = 8
@@ -78,6 +110,9 @@ def detect_sections(lines: list[PdfLine]) -> list[TemplateSection]:
         # classify its type. This order prevents body-text sentences that happen
         # to contain section keywords from being wrongly promoted to headings.
         if _looks_like_heading(line, body_size):
+            norm = normalize_for_match(line.text)
+            if any(frag in norm for frag in IGNORED_HEADING_FRAGMENTS):
+                continue
             sec_type = _classify(line.text) or SectionType.CUSTOM
             label = title_case_label(line.text) if sec_type == SectionType.CUSTOM else {
                 SectionType.HISTORIA: "História",

@@ -8,6 +8,13 @@ from sidecar.models.report_input import ReportInput
 from sidecar.models.template import Template
 
 
+def _resolve_inline_vars(text: str, var_context: dict[str, str]) -> str:
+    """Substitute {{key}} placeholders inside section text with actual variable values."""
+    for key, value in var_context.items():
+        text = text.replace(f"{{{{{key}}}}}", value)
+    return text
+
+
 def build_render_context(
     template: Template,
     report_input: ReportInput,
@@ -18,15 +25,19 @@ def build_render_context(
 
     context: dict[str, str] = {}
 
+    var_context: dict[str, str] = {}
     for var in template.variables:
         value = next((v.value for v in report_input.variables if v.variable_id == var.id), "")
         context[var.key] = value
+        var_context[var.key] = value
 
     for section in template.sections:
         text = next((s.text for s in report_input.sections if s.section_id == section.id), "")
         if section_overrides and section.id in section_overrides:
             text = section_overrides[section.id]
-        context[section_key(section)] = text
+        resolved = _resolve_inline_vars(text, var_context)
+        # \a is docxtpl's soft line-break within a paragraph
+        context[section_key(section)] = resolved.replace("\n", "\a")
 
     return context
 

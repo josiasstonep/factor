@@ -49,6 +49,16 @@ def list_templates() -> list[Template]:
         return [Template.model_validate(from_json(r.data)) for r in rows]
 
 
+def delete_template(template_id: str) -> bool:
+    with SessionLocal() as session:
+        row = session.get(TemplateRow, template_id)
+        if not row:
+            return False
+        session.delete(row)
+        session.commit()
+        return True
+
+
 def save_report_input(report_input: ReportInput) -> None:
     with SessionLocal() as session:
         row = session.get(ReportInputRow, report_input.id)

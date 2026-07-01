@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { listTemplates, parseTemplate } from "../api/client";
+import { useEffect, useRef, useState } from "react";
+import { deleteTemplate, listTemplates, parseTemplate, renameTemplate } from "../api/client";
 import type { Template } from "../api/types";
 
 interface Props {
@@ -12,13 +12,21 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listTemplates()
-      .then((ts) => setTemplates(ts))
+      .then(setTemplates)
       .catch(() => setTemplates([]))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (renamingId) renameInputRef.current?.focus();
+  }, [renamingId]);
 
   async function handleFile(file: File) {
     setUploading(true);
@@ -30,6 +38,35 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
       setError(err instanceof Error ? err.message : "Falha ao fazer upload do PDF.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  function startRename(t: Template) {
+    setRenamingId(t.id);
+    setRenameValue(t.name);
+  }
+
+  async function commitRename(id: string) {
+    const name = renameValue.trim();
+    if (!name) { setRenamingId(null); return; }
+    try {
+      const updated = await renameTemplate(id, name);
+      setTemplates((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    } catch {
+      setError("Falha ao renomear.");
+    } finally {
+      setRenamingId(null);
+    }
+  }
+
+  async function confirmDelete(id: string) {
+    try {
+      await deleteTemplate(id);
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+    } catch {
+      setError("Falha ao deletar.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -46,30 +83,101 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
         <p className="hint">Carregando templates…</p>
       ) : confirmed.length > 0 ? (
         <>
-          <p className="hint">Selecione um template salvo ou faça upload de um novo PDF.</p>
+          <p className="hint" style={{ marginBottom: 12 }}>
+            Selecione um template salvo ou faça upload de um novo PDF.
+          </p>
           <table style={{ marginBottom: 16 }}>
             <thead>
               <tr>
                 <th>Nome</th>
                 <th>PDF de origem</th>
                 <th>Seções</th>
-                <th style={{ width: 90 }}>Ação</th>
+                <th style={{ width: 220 }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {confirmed.map((t) => (
                 <tr key={t.id}>
-                  <td style={{ fontWeight: 600 }}>{t.name}</td>
-                  <td style={{ color: "#848b96", fontSize: 12 }}>{t.source_pdf_filename}</td>
-                  <td style={{ color: "#848b96", fontSize: 12 }}>{t.sections.length} seções</td>
+                  {/* ── Name (editable inline) ── */}
+                  <td style={{ fontWeight: 600 }}>
+                    {renamingId === t.id ? (
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => void commitRename(t.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void commitRename(t.id);
+                          if (e.key === "Escape") setRenamingId(null);
+                        }}
+                        style={{ width: "100%", fontWeight: 600 }}
+                      />
+                    ) : (
+                      <span
+                        title="Clique duas vezes para renomear"
+                        onDoubleClick={() => startRename(t)}
+                        style={{ cursor: "text" }}
+                      >
+                        {t.name}
+                      </span>
+                    )}
+                  </td>
+
+                  <td style={{ color: "#6b7280", fontSize: 12 }}>{t.source_pdf_filename}</td>
+                  <td style={{ color: "#6b7280", fontSize: 12 }}>{t.sections.length} seções</td>
+
+                  {/* ── Actions ── */}
                   <td>
-                    <button
-                      type="button"
-                      style={{ padding: "4px 14px", fontSize: 13 }}
-                      onClick={() => onSelect(t)}
-                    >
-                      Usar
-                    </button>
+                    {deletingId === t.id ? (
+                      <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>Confirmar?</span>
+                        <button
+                          type="button"
+                          className="danger"
+                          style={{ padding: "3px 10px", fontSize: 12 }}
+                          onClick={() => void confirmDelete(t.id)}
+                        >
+                          Sim
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ padding: "3px 10px", fontSize: 12 }}
+                          onClick={() => setDeletingId(null)}
+                        >
+                          Não
+                        </button>
+                      </span>
+                    ) : (
+                      <span style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          style={{ padding: "4px 14px", fontSize: 12 }}
+                          onClick={() => onSelect(t)}
+                        >
+                          Usar
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ padding: "4px 10px", fontSize: 12 }}
+                          title="Renomear"
+                          onClick={() => startRename(t)}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          style={{ padding: "4px 10px", fontSize: 12 }}
+                          title="Deletar"
+                          onClick={() => setDeletingId(t.id)}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -77,11 +185,12 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
           </table>
         </>
       ) : (
-        <p className="hint">
+        <p className="hint" style={{ marginBottom: 16 }}>
           Nenhum template salvo ainda. Faça upload de um PDF de laudo para começar.
         </p>
       )}
 
+      {/* ── Upload zone ── */}
       <div
         style={{
           border: "2px dashed #c8cdd6",
@@ -91,7 +200,7 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
           background: "#fafbfc",
         }}
       >
-        <p style={{ margin: "0 0 12px", color: "#5a6272" }}>
+        <p style={{ margin: "0 0 12px", color: "#5a6272", fontSize: 13 }}>
           {confirmed.length > 0 ? "Ou faça upload de um novo PDF" : "Selecione um PDF de laudo pericial"}
         </p>
         <label>
@@ -108,29 +217,45 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
           <span
             style={{
               display: "inline-block",
-              padding: "8px 20px",
-              background: uploading ? "#aaa" : "#1a56db",
+              padding: "9px 22px",
+              background: uploading ? "#9ca3af" : "var(--c-primary)",
               color: "#fff",
               borderRadius: 6,
               cursor: uploading ? "not-allowed" : "pointer",
-              fontSize: 14,
+              fontSize: 13,
+              fontWeight: 600,
             }}
           >
-            {uploading ? "Enviando…" : "Selecionar PDF…"}
+            {uploading ? "Processando…" : "Selecionar PDF…"}
           </span>
         </label>
       </div>
 
+      {/* ── Drafts ── */}
       {drafts.length > 0 && (
         <details style={{ marginTop: 16 }}>
-          <summary style={{ cursor: "pointer", color: "#848b96", fontSize: 12 }}>
+          <summary style={{ cursor: "pointer", color: "#6b7280", fontSize: 12 }}>
             {drafts.length} rascunho(s) não confirmado(s)
           </summary>
-          <ul style={{ fontSize: 12, color: "#848b96", marginTop: 6 }}>
-            {drafts.map((t) => (
-              <li key={t.id}>{t.name || t.source_pdf_filename}</li>
-            ))}
-          </ul>
+          <table style={{ marginTop: 8 }}>
+            <tbody>
+              {drafts.map((t) => (
+                <tr key={t.id}>
+                  <td style={{ fontSize: 12 }}>{t.name || t.source_pdf_filename}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="danger"
+                      style={{ padding: "3px 10px", fontSize: 11 }}
+                      onClick={() => void confirmDelete(t.id)}
+                    >
+                      Deletar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </details>
       )}
     </div>

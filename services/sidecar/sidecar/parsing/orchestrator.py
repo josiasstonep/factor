@@ -19,6 +19,37 @@ class ParsedStructure:
     image_placeholders: list[TemplateImagePlaceholder]
 
 
+def _filter_repeating_lines(lines: list[pdf_extract.PdfLine], max_pages: int = 2) -> list[pdf_extract.PdfLine]:
+    """Drop lines whose exact text appears on more than max_pages distinct pages.
+    These are repeating headers/footers (e.g. institutional letterhead)."""
+    from collections import defaultdict
+    page_sets: dict[str, set[int]] = defaultdict(set)
+    for line in lines:
+        page_sets[line.text.strip()].add(line.page)
+    repeated = {text for text, pages in page_sets.items() if len(pages) > max_pages}
+    return [ln for ln in lines if ln.text.strip() not in repeated]
+
+
+def _inject_placeholders(
+    sections: list[TemplateSection],
+    variables: list[TemplateVariable],
+) -> None:
+    """Replace detected variable values inside section default_texts with {{key}}.
+
+    Only variables where source_value_detected is long enough to be unambiguous
+    are substituted — short values like "Apple" risk false-positive replacements."""
+    for section in sections:
+        if not section.default_text:
+            continue
+        text = section.default_text
+        for var in variables:
+            val = (var.source_value_detected or "").strip()
+            if len(val) < 6:
+                continue
+            text = text.replace(val, f"{{{{{var.key}}}}}")
+        section.default_text = text
+
+
 def parse_pdf(pdf_path: Path) -> ParsedStructure:
     extraction = pdf_extract.extract(pdf_path)
 
@@ -28,9 +59,13 @@ def parse_pdf(pdf_path: Path) -> ParsedStructure:
             "OCR não é suportado nesta versão — use um PDF com texto extraível."
         )
 
-    sections = detect_sections(extraction.lines)
-    variables = detect_variables(extraction.lines)
-    image_placeholders = detect_images(extraction.images, extraction.lines)
+    clean_lines = _filter_repeating_lines(extraction.lines)
+
+    sections = detect_sections(clean_lines)
+    variables = detect_variables(clean_lines)
+    image_placeholders = detect_images(extraction.images, clean_lines)
+
+    _inject_placeholders(sections, variables)
 
     return ParsedStructure(
         sections=sections,

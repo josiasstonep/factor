@@ -28,6 +28,7 @@ class TemplateVariable(BaseModel):
     key: str
     label: str
     source_label_detected: Optional[str] = None
+    source_value_detected: Optional[str] = None  # actual value found in PDF (for placeholder injection)
     required: bool = True
     value_type: Literal["text", "date", "number"] = "text"
 
@@ -57,6 +58,8 @@ class Template(BaseModel):
     variables: list[TemplateVariable] = Field(default_factory=list)
     image_placeholders: list[TemplateImagePlaceholder] = Field(default_factory=list)
     docx_skeleton_path: Optional[str] = None
+    header_image_path: Optional[str] = None
+    footer_image_path: Optional[str] = None
 
 
 class TemplateUpdate(BaseModel):
@@ -67,3 +70,5 @@ class TemplateUpdate(BaseModel):
     variables: list[TemplateVariable]
     image_placeholders: list[TemplateImagePlaceholder]
     confirm: bool = False
+    header_image_path: Optional[str] = None
+    footer_image_path: Optional[str] = None

@@ -1,15 +1,20 @@
+import re
 import shutil
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from sidecar import repo
 from sidecar.config import TEMPLATES_DIR, UPLOADS_DIR
 from sidecar.generation.docx_template_builder import build_skeleton
-from sidecar.models.template import Template, TemplateUpdate
+from sidecar.models.template import Template, TemplateUpdate, TemplateVariable
+from sidecar.parsing.header_footer_extract import extract_header_footer
 from sidecar.parsing.orchestrator import PdfHasNoTextLayerError, parse_pdf
+
+_REP_FROM_FILENAME = re.compile(r'\bREP[\s_-]?(\d{4,6})[_/\\-](\d{2,4})\b', re.IGNORECASE)
 
 router = APIRouter(prefix="/templates", tags=["templates"])
 
@@ -29,6 +34,23 @@ async def parse_template(file: UploadFile):
     except PdfHasNoTextLayerError as exc:
         raise HTTPException(422, str(exc)) from exc
 
+    variables = parsed.variables
+
+    # Inject REP number from filename if not already detected in body text
+    if not any(v.key == "rep" for v in variables):
+        m = _REP_FROM_FILENAME.search(file.filename)
+        if m:
+            rep_value = f"{m.group(1)}/{m.group(2)}"
+            variables.insert(0, TemplateVariable(
+                id=str(uuid4()),
+                key="rep",
+                label="Número da REP",
+                source_label_detected=None,
+                source_value_detected=rep_value,
+            ))
+
+    header_image_path, footer_image_path = extract_header_footer(pdf_path, UPLOADS_DIR)
+
     template = Template(
         id=template_id,
         name=file.filename.rsplit(".", 1)[0],
@@ -36,8 +58,10 @@ async def parse_template(file: UploadFile):
         source_pdf_filename=file.filename,
         status="draft_parsed",
         sections=parsed.sections,
-        variables=parsed.variables,
+        variables=variables,
         image_placeholders=parsed.image_placeholders,
+        header_image_path=header_image_path,
+        footer_image_path=footer_image_path,
     )
     repo.save_template(template)
     return template
@@ -66,6 +90,8 @@ async def update_template(template_id: str, update: TemplateUpdate):
     existing.sections = update.sections
     existing.variables = update.variables
     existing.image_placeholders = update.image_placeholders
+    existing.header_image_path = update.header_image_path
+    existing.footer_image_path = update.footer_image_path
 
     if update.confirm:
         if not existing.sections:
@@ -77,3 +103,27 @@ async def update_template(template_id: str, update: TemplateUpdate):
 
     repo.save_template(existing)
     return existing
+
+
+class RenamePayload(BaseModel):
+    name: str
+
+
+@router.patch("/{template_id}/rename", response_model=Template)
+async def rename_template(template_id: str, payload: RenamePayload):
+    existing = repo.get_template(template_id)
+    if not existing:
+        raise HTTPException(404, "Template não encontrado.")
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(400, "Nome não pode ser vazio.")
+    existing.name = name
+    repo.save_template(existing)
+    return existing
+
+
+@router.delete("/{template_id}", status_code=204)
+async def delete_template(template_id: str):
+    deleted = repo.delete_template(template_id)
+    if not deleted:
+        raise HTTPException(404, "Template não encontrado.")

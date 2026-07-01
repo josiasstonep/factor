@@ -18,6 +18,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.text().catch(() => "");
     throw new Error(`${res.status} ${res.statusText}: ${body}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -43,6 +44,8 @@ export interface TemplateUpdatePayload {
   variables: TemplateVariable[];
   image_placeholders: TemplateImagePlaceholder[];
   confirm: boolean;
+  header_image_path: string | null;
+  footer_image_path: string | null;
 }
 
 export async function updateTemplate(
@@ -54,6 +57,18 @@ export async function updateTemplate(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export async function renameTemplate(id: string, name: string): Promise<Template> {
+  return request<Template>(`/templates/${id}/rename`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  await request<void>(`/templates/${id}`, { method: "DELETE" });
 }
 
 // ─── Uploads ─────────────────────────────────────────────────────────────────

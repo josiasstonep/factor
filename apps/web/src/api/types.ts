@@ -16,6 +16,7 @@ export interface TemplateVariable {
   key: string;
   label: string;
   source_label_detected: string | null;
+  source_value_detected: string | null;
   required: boolean;
   value_type: "text" | "date" | "number";
 }
@@ -39,6 +40,8 @@ export interface Template {
   variables: TemplateVariable[];
   image_placeholders: TemplateImagePlaceholder[];
   docx_skeleton_path: string | null;
+  header_image_path: string | null;
+  footer_image_path: string | null;
 }
 
 export interface ReportInputVariableValue {

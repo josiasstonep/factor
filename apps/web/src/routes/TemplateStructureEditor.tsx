@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { updateTemplate } from "../api/client";
+import { updateTemplate, uploadImage } from "../api/client";
 import type {
   ImagePlaceholderType,
   SectionType,
@@ -28,6 +28,8 @@ const IMAGE_TYPE_LABELS: Record<ImagePlaceholderType, string> = {
   custom: "Personalizada",
 };
 
+const SIDECAR_PORT = 8731;
+
 function uid() {
   return crypto.randomUUID();
 }
@@ -40,13 +42,33 @@ function move<T>(arr: T[], index: number, dir: -1 | 1): T[] {
   return copy.map((item, i) => ({ ...item, order: i }) as T);
 }
 
+function filePathToPreviewUrl(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/images/");
+  if (parts.length >= 2) {
+    return `http://127.0.0.1:${SIDECAR_PORT}/uploads-static/images/${parts[parts.length - 1]}`;
+  }
+  return "";
+}
+
 export default function TemplateStructureEditor({ template, onConfirmed }: Props) {
   const [name, setName] = useState(template.name);
   const [sections, setSections] = useState<TemplateSection[]>(template.sections);
   const [variables, setVariables] = useState<TemplateVariable[]>(template.variables);
+  const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>({});
   const [imagePlaceholders, setImagePlaceholders] = useState<TemplateImagePlaceholder[]>(
     template.image_placeholders,
   );
+  const [headerImagePath, setHeaderImagePath] = useState<string | null>(template.header_image_path);
+  const [footerImagePath, setFooterImagePath] = useState<string | null>(template.footer_image_path);
+  const [headerPreviewUrl, setHeaderPreviewUrl] = useState<string | null>(
+    template.header_image_path ? filePathToPreviewUrl(template.header_image_path) : null,
+  );
+  const [footerPreviewUrl, setFooterPreviewUrl] = useState<string | null>(
+    template.footer_image_path ? filePathToPreviewUrl(template.footer_image_path) : null,
+  );
+  const [uploadingHeader, setUploadingHeader] = useState(false);
+  const [uploadingFooter, setUploadingFooter] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,16 +84,50 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
     setImagePlaceholders((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }
 
+  async function handleHeaderUpload(file: File) {
+    setUploadingHeader(true);
+    setError(null);
+    try {
+      const { file_path } = await uploadImage(file);
+      setHeaderImagePath(file_path);
+      setHeaderPreviewUrl(filePathToPreviewUrl(file_path));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao enviar imagem de cabeçalho.");
+    } finally {
+      setUploadingHeader(false);
+    }
+  }
+
+  async function handleFooterUpload(file: File) {
+    setUploadingFooter(true);
+    setError(null);
+    try {
+      const { file_path } = await uploadImage(file);
+      setFooterImagePath(file_path);
+      setFooterPreviewUrl(filePathToPreviewUrl(file_path));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao enviar imagem de rodapé.");
+    } finally {
+      setUploadingFooter(false);
+    }
+  }
+
   async function handleConfirm() {
     setSaving(true);
     setError(null);
     try {
+      const finalVariables = variables.map((v) => ({
+        ...v,
+        label: labelOverrides[v.id]?.trim() || v.label,
+      }));
       const updated = await updateTemplate(template.id, {
         name,
         sections,
-        variables,
+        variables: finalVariables,
         image_placeholders: imagePlaceholders,
         confirm: true,
+        header_image_path: headerImagePath,
+        footer_image_path: footerImagePath,
       });
       onConfirmed(updated);
     } catch (err) {
@@ -93,6 +149,53 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
       <div className="field-row">
         <label>Nome do template</label>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+
+      {/* ── Header / Footer images ── */}
+      <h3 style={{ marginTop: 28 }}>Cabeçalho e Rodapé (todas as páginas do DOCX)</h3>
+      <div style={{ display: "flex", gap: 20, marginBottom: 16 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+            Imagem de cabeçalho
+          </div>
+          {headerPreviewUrl ? (
+            <div>
+              <img src={headerPreviewUrl} alt="Cabeçalho" style={{ maxWidth: "100%", maxHeight: 80, objectFit: "contain", border: "1px solid #e5e7eb", borderRadius: 4, padding: 4 }} />
+              <label style={{ display: "block", marginTop: 6, fontSize: 12, color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>
+                Trocar
+                <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingHeader}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleHeaderUpload(f); }} />
+              </label>
+            </div>
+          ) : (
+            <label style={{ display: "block", padding: "12px 16px", border: "2px dashed #d1d5db", borderRadius: 6, textAlign: "center", fontSize: 12, color: "#9ca3af", cursor: "pointer" }}>
+              {uploadingHeader ? "Enviando…" : "Clique para selecionar imagem de cabeçalho"}
+              <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingHeader}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleHeaderUpload(f); }} />
+            </label>
+          )}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+            Imagem de rodapé
+          </div>
+          {footerPreviewUrl ? (
+            <div>
+              <img src={footerPreviewUrl} alt="Rodapé" style={{ maxWidth: "100%", maxHeight: 80, objectFit: "contain", border: "1px solid #e5e7eb", borderRadius: 4, padding: 4 }} />
+              <label style={{ display: "block", marginTop: 6, fontSize: 12, color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>
+                Trocar
+                <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingFooter}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFooterUpload(f); }} />
+              </label>
+            </div>
+          ) : (
+            <label style={{ display: "block", padding: "12px 16px", border: "2px dashed #d1d5db", borderRadius: 6, textAlign: "center", fontSize: 12, color: "#9ca3af", cursor: "pointer" }}>
+              {uploadingFooter ? "Enviando…" : "Clique para selecionar imagem de rodapé"}
+              <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingFooter}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFooterUpload(f); }} />
+            </label>
+          )}
+        </div>
       </div>
 
       <h3>Seções</h3>
@@ -191,8 +294,12 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
               <td>
                 <input
                   type="text"
-                  value={v.label}
-                  onChange={(e) => updateVariable(v.id, { label: e.target.value })}
+                  className="tpl-label-input"
+                  placeholder={v.label}
+                  value={labelOverrides[v.id] ?? ""}
+                  onChange={(e) =>
+                    setLabelOverrides((prev) => ({ ...prev, [v.id]: e.target.value }))
+                  }
                 />
               </td>
               <td>
@@ -215,10 +322,11 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
         type="button"
         className="secondary"
         onClick={() =>
-          setVariables((p) => [
-            ...p,
-            { id: uid(), key: `campo_${p.length + 1}`, label: "Novo Campo", source_label_detected: null, required: true, value_type: "text" },
-          ])
+          setVariables((p) => {
+            const newId = uid();
+            setLabelOverrides((prev) => ({ ...prev, [newId]: "" }));
+            return [...p, { id: newId, key: `campo_${p.length + 1}`, label: "Novo Campo", source_label_detected: null, source_value_detected: null, required: true, value_type: "text" }];
+          })
         }
       >
         + Adicionar variável
