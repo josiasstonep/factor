@@ -1,0 +1,125 @@
+import sidecar.ai_providers.claude  # noqa: F401 — registers provider
+import sidecar.ai_providers.gemini  # noqa: F401
+import sidecar.ai_providers.groq  # noqa: F401
+import sidecar.ai_providers.ollama  # noqa: F401
+import sidecar.ai_providers.openai_provider  # noqa: F401
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from sidecar import repo
+from sidecar.ai_providers.base import all_providers, get_provider
+from sidecar.diffing.word_diff import word_diff
+
+router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+# ─── GET /ai/providers ────────────────────────────────────────────────────────
+
+
+class ProviderInfo(BaseModel):
+    name: str
+    label: str
+    requires_key: bool
+    available: bool
+    default_model: str | None = None
+
+
+@router.get("/providers", response_model=list[ProviderInfo])
+async def list_providers():
+    result = []
+    for p in all_providers():
+        result.append(
+            ProviderInfo(
+                name=p.name,
+                label=p.label,
+                requires_key=p.requires_key,
+                available=await p.is_available(),
+            )
+        )
+    return result
+
+
+# ─── POST /ai/improve ─────────────────────────────────────────────────────────
+
+
+class ImproveRequest(BaseModel):
+    report_id: str
+    section_id: str
+    provider: str
+    api_key: str | None = None
+    model: str | None = None
+
+
+class ImproveResponse(BaseModel):
+    report_id: str
+    section_id: str
+    ai_text: str
+    diff: list[dict]
+
+
+@router.post("/improve", response_model=ImproveResponse)
+async def improve_section(payload: ImproveRequest):
+    report = repo.get_generated_report(payload.report_id)
+    if not report:
+        raise HTTPException(404, "Laudo não encontrado.")
+
+    section = next((s for s in report.sections if s.section_id == payload.section_id), None)
+    if section is None:
+        raise HTTPException(404, "Seção não encontrada no laudo.")
+
+    provider = get_provider(payload.provider)
+    if provider is None:
+        raise HTTPException(400, f"Provedor '{payload.provider}' não registrado.")
+
+    if payload.api_key is None and provider.requires_key:
+        raise HTTPException(400, f"Provedor '{payload.provider}' requer uma chave de API.")
+
+    try:
+        ai_text = await provider.improve_text(
+            section.original_text, payload.api_key, payload.model
+        )
+    except Exception as exc:
+        raise HTTPException(502, f"Erro ao chamar {payload.provider}: {exc}") from exc
+
+    diff = word_diff(section.original_text, ai_text)
+
+    section.ai_text = ai_text
+    section.diff = diff
+    section.ai_provider_used = payload.provider
+    section.accepted = False
+    report.status = "ai_pending"
+    repo.save_generated_report(report)
+
+    return ImproveResponse(
+        report_id=payload.report_id,
+        section_id=payload.section_id,
+        ai_text=ai_text,
+        diff=[op.model_dump() for op in diff],
+    )
+
+
+# ─── PATCH /ai/accept ────────────────────────────────────────────────────────
+
+
+class AcceptRequest(BaseModel):
+    report_id: str
+    section_id: str
+    accept: bool
+
+
+@router.patch("/accept")
+async def accept_section(payload: AcceptRequest):
+    report = repo.get_generated_report(payload.report_id)
+    if not report:
+        raise HTTPException(404, "Laudo não encontrado.")
+
+    section = next((s for s in report.sections if s.section_id == payload.section_id), None)
+    if section is None:
+        raise HTTPException(404, "Seção não encontrada.")
+
+    section.accepted = payload.accept
+    if all(s.ai_text is None or s.accepted for s in report.sections):
+        report.status = "ai_reviewed"
+    repo.save_generated_report(report)
+
+    return {"ok": True, "accepted": section.accepted}

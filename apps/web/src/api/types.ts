@@ -92,3 +92,23 @@ export interface GenerateBatchResponse {
   reports: GeneratedReport[];
   errors: { row_label: string; error: string }[];
 }
+
+export interface AiProviderInfo {
+  name: string;
+  label: string;
+  requires_key: boolean;
+  available: boolean;
+}
+
+export interface DiffOp {
+  op: "equal" | "insert" | "delete" | "replace";
+  original: string;
+  revised: string;
+}
+
+export interface ImproveResponse {
+  report_id: string;
+  section_id: string;
+  ai_text: string;
+  diff: DiffOp[];
+}

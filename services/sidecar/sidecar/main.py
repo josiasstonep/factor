@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from sidecar.config import UPLOADS_DIR
 from sidecar.db import init_db
-from sidecar.routers import reports, templates, uploads
+from sidecar.routers import ai, reports, templates, uploads
 
 app = FastAPI(title="Factor Sidecar", version="0.1.0")
 
@@ -22,6 +22,7 @@ init_db()
 app.include_router(templates.router)
 app.include_router(uploads.router)
 app.include_router(reports.router)
+app.include_router(ai.router)
 
 # Serve uploaded images back to the renderer for previewing (e.g. <img src="/uploads/images/...">)
 app.mount("/uploads-static", StaticFiles(directory=UPLOADS_DIR), name="uploads-static")

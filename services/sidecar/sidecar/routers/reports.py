@@ -97,13 +97,32 @@ async def download_report_docx(report_id: str):
     report = repo.get_generated_report(report_id)
     if not report:
         raise HTTPException(404, "Laudo não encontrado.")
-    path = Path(report.docx_path)
-    if not path.exists():
-        raise HTTPException(410, "Arquivo do laudo não está mais disponível em disco.")
+
+    accepted_overrides = {
+        s.section_id: s.ai_text
+        for s in report.sections
+        if s.accepted and s.ai_text is not None
+    }
+
+    if accepted_overrides:
+        template = repo.get_template(report.template_id)
+        report_input = repo.get_report_input(report.report_input_id)
+        if not template or not report_input:
+            raise HTTPException(500, "Dados do template ou laudo não encontrados.")
+        from sidecar.generation.docx_render import render_docx
+        out = Path(report.docx_path).with_suffix(".ai.docx")
+        render_docx(template, report_input, out, section_overrides=accepted_overrides)
+        path = out
+    else:
+        path = Path(report.docx_path)
+        if not path.exists():
+            raise HTTPException(410, "Arquivo do laudo não está mais disponível em disco.")
+
+    label = report.row_label or report.id
     return FileResponse(
         path,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=path.name,
+        filename=f"{label}.docx",
     )
 
 

@@ -1,10 +1,12 @@
 import type {
+  AiProviderInfo,
   GenerateBatchResponse,
+  ImproveResponse,
   ReportInputCreate,
   Template,
+  TemplateImagePlaceholder,
   TemplateSection,
   TemplateVariable,
-  TemplateImagePlaceholder,
 } from "./types";
 
 const SIDECAR_PORT = 8731;
@@ -85,4 +87,42 @@ export function reportDocxUrl(reportId: string): string {
 
 export function batchZipUrl(batchId: string): string {
   return `${BASE_URL}/reports/batch/${batchId}/zip`;
+}
+
+// ─── AI improvement ───────────────────────────────────────────────────────────
+
+export async function listAiProviders(): Promise<AiProviderInfo[]> {
+  return request<AiProviderInfo[]>("/ai/providers");
+}
+
+export async function improveSection(
+  reportId: string,
+  sectionId: string,
+  provider: string,
+  apiKey: string | null,
+  model: string | null,
+): Promise<ImproveResponse> {
+  return request<ImproveResponse>("/ai/improve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      report_id: reportId,
+      section_id: sectionId,
+      provider,
+      api_key: apiKey,
+      model,
+    }),
+  });
+}
+
+export async function acceptSection(
+  reportId: string,
+  sectionId: string,
+  accept: boolean,
+): Promise<void> {
+  await request("/ai/accept", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ report_id: reportId, section_id: sectionId, accept }),
+  });
 }
