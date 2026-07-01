@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(pip --version)",
+      "Bash(python -m venv .venv)",
+      "Bash(\".venv/Scripts/python.exe\" -m pip install --upgrade pip -q)",
+      "Bash(\".venv/Scripts/python.exe\" -m pip install -e \".[dev]\" -q)",
+      "Bash(\".venv/Scripts/python.exe\" -c \"from sidecar.main import app; print\\('OK', len\\(app.routes\\), 'routes'\\)\")"
+    ]
+  }
+}
