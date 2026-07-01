@@ -14,7 +14,7 @@
     "build": "npm run build:web && npm run build:desktop",
     "build:web": "npm run build --workspace apps/web",
     "build:desktop": "npm run build --workspace apps/desktop",
-    "build:sidecar": "cd services/sidecar && .venv/Scripts/pyinstaller build_sidecar.spec --distpath dist --workpath build/pyinstaller --noconfirm",
+    "build:sidecar": "cd services/sidecar && .venv/Scripts/python.exe -m PyInstaller build_sidecar.spec --distpath dist --workpath build/pyinstaller --noconfirm",
     "package": "npm run build && electron-builder --config electron-builder.yml",
     "package:full": "npm run build && npm run build:sidecar && electron-builder --config electron-builder.yml"
   },
