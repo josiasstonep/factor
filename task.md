@@ -61,15 +61,39 @@
 
 ---
 
+## Sessão 2026-07-02 (noite) — Parser Figura 01 + UX de navegação ✅
+
+### Concluído
+- [x] **Figura 01 auto-detectada no upload**: `detect_figures_from_text` agora escaneia
+  texto completo do PDF (não só seções), detecta "Figura 01 – Vestígio..." que fica abaixo
+  de imagem embutida; usa posição Y para atribuir corretamente à seção "Material Recebido"
+  mesmo quando heading da próxima seção está na mesma página
+- [x] **Navegação pelos steps**: chips "1. Upload", "2. Estrutura" etc. ficam clicáveis
+  quando já concluídos (cursor pointer); "1. Upload" vai à tela inicial (home/TemplateList)
+- [x] **Botão "Estrutura" para templates confirmados**: recarrega dados frescos da API antes
+  de abrir o editor (evita estado obsoleto)
+- [x] **Botão "Editar" para templates draft**: permite editar um rascunho existente sem
+  re-upload do PDF
+- [x] **Diagnóstico do ciclo vicioso**: template confirmado sumia porque o sidecar do
+  Electron usa `userData/factor-data/` (prod) enquanto os testes de API iam para `.data/`
+  (dev) — dois bancos diferentes
+
+### Estado atual do DB (dev, porta 8731)
+- 2 drafts `draft_parsed` de REP 32214_2026 (sem template confirmado ainda)
+- **Para criar template confirmado com Figura 01**: reiniciar sidecar, fazer upload do PDF
+  → Figura 01 aparece automaticamente → Confirmar estrutura
+
+---
+
 ## Pendente — Próxima sessão ⏳
 
-- [ ] **Reiniciar app + re-confirmar template**: para carregar o novo código do cabeçalho
-  full-width; fechar Factor, reabrir, abrir TemplateStructureEditor, clicar Confirmar
-- [ ] **Upload de imagem inline (Figura 01)**: usuário quer adicionar foto do vestígio
-  no formulário — testar o fluxo de upload de imagem dentro da seção "Material Recebido"
-  e verificar que aparece no DOCX na posição certa
-- [ ] **Limpar drafts obsoletos**: 5 drafts antigos na DB (REP 28203, test_laudo etc.)
-  — apagar ou deixar acumular conforme preferência do usuário
+- [ ] **Testar Figura 01 no upload**: reiniciar sidecar (código novo), fazer upload do PDF
+  REP 32214_2026 → verificar que Figura 01 aparece na lista de imagens → Confirmar → gerar DOCX
+- [ ] **Verificar DOCX gerado**: foto do vestígio entre "Material Recebido" e "Objetivo",
+  mesma formatação que Figura 02 e Figura 03
+- [ ] **Cabeçalho full-width**: verificar visualmente que cabeçalho ocupa 210mm após restart
+- [ ] **Limpar drafts duplicados**: deletar os 2 drafts REP 32214_2026 sem utilidade após
+  ter um template confirmado com as 3 figuras
 
 ---
 

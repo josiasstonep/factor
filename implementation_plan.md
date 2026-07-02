@@ -97,6 +97,33 @@ Desktop app (Electron + React + Python FastAPI sidecar) para geração de laudos
 
 ---
 
+---
+
+## Refinamentos de Qualidade — Estado Atual ✅
+
+> Sessões 2026-07-01 a 2026-07-02. Todos entregues e no GitHub.
+
+### DOCX Formatting (docx_render.py + docx_template_builder.py)
+- [x] Margens A4: left=2cm, right=2cm, top=2.8cm, header_distance=0.43cm
+- [x] Cabeçalho/rodapé: 210mm largura total (indent -2cm compensa margem)
+- [x] Block quotes: indent 5cm + itálico (detecta parágrafo abrindo com `"`)
+- [x] Mojibake CP1252 + lone surrogates: sanitizados em `_sanitize_text()`
+- [x] Caption figuras: Arial 11pt
+
+### Parser de PDF (parsing/image_detect.py)
+- [x] `detect_figures_from_text`: escaneia texto completo do PDF (não só seções)
+  para detectar legendas "Figura XX" abaixo de imagens embutidas
+- [x] Atribuição de seção por posição Y (heading anterior à legenda na mesma página)
+- [x] Figura 01 detectada automaticamente para seção "Material Recebido para Análise"
+
+### UX / Frontend
+- [x] `TemplateList`: botão "Estrutura" (confirmed) e "Editar" (draft) — busca dados
+  frescos da API antes de abrir o TemplateStructureEditor
+- [x] `App.tsx`: chips de step clicáveis para navegação backward; "1. Upload" → home
+- [x] `BatchForm.tsx`: ImageZone por seção (Figura 01/02/03 dentro de cada seção)
+
+---
+
 ## Fluxo de Dados
 
 ```
