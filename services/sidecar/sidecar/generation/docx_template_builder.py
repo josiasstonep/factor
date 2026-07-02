@@ -57,18 +57,27 @@ def _add_header_image(doc: Document, image_path: str) -> None:
     sec = doc.sections[0]
     header = sec.header
     p = header.paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    # Extend into left margin so the image spans the full A4 page width
+    p.paragraph_format.left_indent = -sec.left_margin
+    p.paragraph_format.right_indent = Pt(0)
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(0)
     run = p.add_run()
-    run.add_picture(image_path, width=_CONTENT_WIDTH)
+    run.add_picture(image_path, width=sec.page_width)  # full A4 width (210mm)
 
 
 def _add_footer_image(doc: Document, image_path: str) -> None:
     sec = doc.sections[0]
     footer = sec.footer
     p = footer.paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p.paragraph_format.left_indent = -sec.left_margin
+    p.paragraph_format.right_indent = Pt(0)
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(0)
     run = p.add_run()
-    run.add_picture(image_path, width=_CONTENT_WIDTH)
+    run.add_picture(image_path, width=sec.page_width)  # full A4 width (210mm)
 
 
 def _heading_para(doc: Document, text: str, order: int = -1) -> None:
