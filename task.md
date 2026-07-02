@@ -4,29 +4,20 @@
 
 ---
 
-## Sessão 2026-07-01 — Imagens inline + Correção dos 8 capítulos ✅
+## Sessão 2026-07-02 — Verificação e correção de qualidade ✅
 
-### Imagens dentro das seções
-- [x] `TemplateImagePlaceholder` ganha campo `section_id` (opcional) — vincula cada figura à seção pai
-- [x] `docx_template_builder.py`: `_add_image_placeholder()` centralizado; imagens com `section_id` aparecem
-  logo após o texto da seção; sem `section_id` vão ao final (orphan)
-- [x] `BatchForm.tsx`: `ImageZone` renderiza **dentro de cada seção** ao invés do bloco separado no final;
-  orphan images mantêm bloco "IMAGENS / ANEXOS" no final
-- [x] `types.ts`: `section_id?: string | null` adicionado a `TemplateImagePlaceholder`
-- [x] Template confirmado com Figura 02 (Análise Forense) e Figura 03 (Verificação de Integridade)
-  linkadas às suas seções via `section_id`
-
-### Correção da detecção de seções (`section_detect.py`)
-- [x] `IGNORED_HEADING_FRAGMENTS`: adicionado cellebrite, ufed, physical analyzer, inseyets, ufdr
-  — nomes de ferramentas forenses em bold no PDF que NÃO são capítulos do laudo
-- [x] Labels únicos e corretos por seção: usa o texto real do heading com `title_case_label()`
-  para TODOS os tipos (não só CUSTOM) — elimina três seções todas chamadas "Análise"
-- [x] Prefixo numérico ("3. ", "4. ") removido do label automaticamente no parse
-- [x] `text_utils.title_case_label()`: respeita artigos/preposições portuguesas (de, do, da,
-  para, com...) que ficam minúsculos exceto na primeira palavra
-- [x] `rebuild_ti_template.py`: script robusto que re-parseia qualquer PDF do laudo T.I.,
-  faz merge de texto de seções falsas na seção anterior, confirma com exatamente 8 capítulos
-- [x] Template confirmado `c078e655` com a estrutura correta:
+### Verificado e resolvido
+- [x] **DOCX paragraph order**: Figura 02 aparece imediatamente após "Análise Forense dos
+  Dados Extraídos" (parágrafos [10→11→12]), Figura 03 após "Verificação de Integridade"
+  ([14→15→16]). Imagens dentro das seções, não no final do documento.
+- [x] **Novo upload de PDF**: parse de REP 28203 produz exatamente 8 seções canônicas sem
+  Cellebrite/UFED. section_detect.py corrigido na sessão anterior funciona corretamente.
+- [x] **Encoding UTF-8**: aparente Mojibake nos labels era artefato do terminal Windows
+  (cp1252). Os bytes raw da API são UTF-8 correto: `c2 ba` = "º", `c3 ad` = "í".
+  Browser com fetch decodifica corretamente. Nenhuma correção necessária na API.
+- [x] **Labels de variáveis**: corrigidos de "111..." para labels canônicos:
+  REP nº, Vestígio, SEI nº, Ofício, Marca, Lacre nº.
+- [x] **Template confirmado 118af226** com estrutura final:
   1. Histórico
   2. Material Recebido para Análise
   3. Objetivo
@@ -38,75 +29,73 @@
 
 ---
 
+## Sessão 2026-07-01 — Imagens inline + Correção dos 8 capítulos ✅
+
+### Imagens dentro das seções
+- [x] `TemplateImagePlaceholder` ganha campo `section_id` (opcional)
+- [x] `docx_template_builder.py`: imagens com `section_id` aparecem logo após o texto da seção
+- [x] `BatchForm.tsx`: `ImageZone` renderiza dentro de cada seção
+- [x] Template confirmado com Figura 02 e Figura 03 linkadas às suas seções
+
+### Correção da detecção de seções (`section_detect.py`)
+- [x] `IGNORED_HEADING_FRAGMENTS`: cellebrite, ufed, physical analyzer, inseyets, ufdr
+- [x] Labels únicos por seção usando heading text real com `title_case_label()`
+- [x] Prefixo numérico ("3. ", "4. ") removido automaticamente
+- [x] `title_case_label()`: preposições portuguesas em minúsculo
+- [x] `rebuild_ti_template.py`: script robusto para re-confirmar templates T.I.
+
+---
+
 ## Pendente — Próxima sessão ⏳
 
-- [ ] **Testar geração de DOCX** com o template corrigido e verificar que:
-  - Imagens (Figura 02 / Figura 03) aparecem nas posições corretas dentro das seções
-  - Upload de imagem no formulário funciona dentro das seções (não só no final)
-  - DOCX gerado tem Arial 12pt, 1.5 espaçamento, justificado, recuo 1.25cm
-- [ ] **Testar novo upload de PDF** (outro laudo T.I.) e verificar que o parse já produz
-  os 8 capítulos corretos automaticamente (sem precisar rodar scripts de migração)
-- [ ] **Draft templates obsoletos**: limpar os 5 drafts antigos da DB (REP 28203, test_laudo etc.)
-  ou deixar para quando o usuário tiver um novo PDF real para testar
-- [ ] **Rótulos de variáveis**: verificar se "Vestígio", "Ofício" etc. aparecem corretos
-  no formulário batch (sem caractere U+00AD soft-hyphen vindo do PDF)
+- [ ] **Testar no app real (browser)**: abrir o formulário, preencher variáveis (Vestígio,
+  Lacre nº etc.) e verificar que os labels aparecem corretos na UI (confirmar que UTF-8
+  está ok no browser)
+- [ ] **Upload de imagem inline**: testar o fluxo de upload de imagem dentro de uma seção
+  (Figura 02 / Figura 03) e verificar que o DOCX gerado inclui a imagem na posição certa
+- [ ] **Limpar drafts obsoletos**: 5 drafts antigos na DB (REP 28203, test_laudo etc.)
+  — apagar ou deixar acumular conforme preferência do usuário
+- [ ] **Scripts de migração avulsos**: fix_oficio.py, fix_paragraphs.py, fix_paragraphs2.py,
+  fix_sections.py, fix_sections2.py, recreate_confirmed.py — adicionar ao .gitignore
+  ou commitar como histórico
 
 ---
 
 ## M4 — Multi-templates + Packaging ✅
 
-### Frontend
-- [x] `TemplateList.tsx` — tela home com templates salvos, botão "Usar" por template, upload zone para novo PDF
-- [x] `App.tsx` — fluxo começa em "home", clicar no título volta à lista de templates
-
-### Packaging
-- [x] `build_sidecar.spec` — spec PyInstaller --onedir com hidden imports (uvicorn, FastAPI, AI providers)
-- [x] `electron-builder.yml` — NSIS Windows (x64), web → resources/web/, sidecar → resources/sidecar/
-- [x] `package.json` — scripts: build, build:sidecar, package, package:full + electron-builder devDep
-- [x] `sidecar.ts` — nome de exe cross-platform, FACTOR_DATA_DIR aponta para userData/factor-data
-- [x] `main.ts` — em modo packaged usa process.resourcesPath para encontrar web/index.html
-- [x] Testado: sidecar.exe --port 8733 → health OK + 5 providers AI registrados
+- [x] `build_sidecar.spec` — spec PyInstaller --onedir
+- [x] `electron-builder.yml` — NSIS Windows (x64)
+- [x] `sidecar.ts` — FACTOR_DATA_DIR aponta para userData/factor-data
+- [x] `main.ts` — em modo packaged usa process.resourcesPath
+- [x] Testado: sidecar.exe → health OK + 5 providers AI
 
 ---
 
 ## Concluído em sessões anteriores
 
 ### M3 — Melhoria com IA + diff ✅
-- [x] `ai_providers/` — Protocol base + Ollama, Claude, OpenAI, Groq, Gemini
-- [x] `diffing/word_diff.py` — diff word-level via difflib.SequenceMatcher
-- [x] `routers/ai.py` — GET /ai/providers, POST /ai/improve, PATCH /ai/accept
-- [x] DOCX download re-renderiza com textos AI aceitos como overrides
-- [x] `AiImprove.tsx` — seletor de provedor, API key (sessão), melhora por seção ou tudo
-- [x] `DiffView.tsx` — track-changes visual (verde=insert, vermelho=delete)
-- [x] `GenerationReview.tsx` — botão "Melhorar com IA" quando há seções improvable
+- [x] `ai_providers/` — Ollama, Claude, OpenAI, Groq, Gemini
+- [x] `diffing/word_diff.py` + `routers/ai.py`
+- [x] `AiImprove.tsx`, `DiffView.tsx`, `GenerationReview.tsx`
 
 ### M2 — Batch multi-row ✅
-- [x] `BatchForm.tsx` — repetidor de N linhas, add/remove, collapsible por caso
-- [x] `GenerationReview.tsx` — tabela com row_label, link DOCX individual, botão ZIP
-- [x] ZIP export — usa report_input.row_label como arcname
+- [x] `BatchForm.tsx` — N laudos com tabs, add/remove caso
+- [x] ZIP export com row_label como arcname
 
-### M1 — Fluxo base (1 template, 1 laudo) ✅
-- [x] Monorepo: apps/desktop (Electron), apps/web (React+Vite), services/sidecar (FastAPI Python)
-- [x] Parsing PDF: seções, variáveis, imagens
-- [x] Geração DOCX: skeleton docxtpl + render por ReportInput
-- [x] Endpoints: /templates, /uploads/image, /reports/generate, /reports/{id}/docx
-- [x] SQLite (SQLAlchemy) + repo layer
-- [x] Electron: main.ts, preload.ts, sidecar.ts
+### M1 — Fluxo base ✅
+- [x] Monorepo Electron + React + FastAPI
+- [x] Parsing PDF, geração DOCX, SQLite, endpoints
 
 ### Refinamentos de qualidade ✅
 - [x] DOCX: Arial 12pt, espaçamento 1.5, margens A4
-- [x] Extração automática de cabeçalho/rodapé do PDF via PyMuPDF
-- [x] Fix vestígio regex, campos de variáveis vazios, resolveVars fallback
-- [x] Fix Ofício: injectPlaceholders usa regex `\s+` para tolerar quebras do PDF
-- [x] `normalize_paragraphs_from_pdf()`: usa posição X para detectar parágrafos
-  (evita que cada linha física do PDF vire parágrafo separado no DOCX)
+- [x] Extração cabeçalho/rodapé do PDF
+- [x] `normalize_paragraphs_from_pdf()`: posição X para detectar parágrafos
 
 ---
 
-## Melhorias Futuras (pós-V1)
+## Melhorias Futuras
 
-- Suporte a DOCX customizado do usuário (layout avançado) como esqueleto alternativo
-- Histórico de batches gerados por template
-- Preview HTML antes de exportar
-- Gestão de chaves de API via Electron safeStorage (persistência entre sessões)
-- Modo offline completo com Ollama como padrão
+- DOCX customizado do usuário como esqueleto alternativo
+- Histórico de batches por template
+- Gestão de chaves API via Electron safeStorage
+- Modo offline completo com Ollama
