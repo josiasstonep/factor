@@ -16,6 +16,8 @@ services/sidecar/generate_payload.json
 services/sidecar/generate_result.json
 services/sidecar/test_output.docx
 services/sidecar/debug_out.json
+services/sidecar/fix_*.py
+services/sidecar/recreate_*.py
 *.pyc
 *.pyo
 .env
