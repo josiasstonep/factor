@@ -47,7 +47,7 @@ def _setup_page(doc: Document) -> None:
     sec.page_width = Mm(210)
     sec.left_margin = Cm(3.0)
     sec.right_margin = Cm(2.0)
-    sec.top_margin = Cm(3.0)
+    sec.top_margin = Cm(4.0)   # extra room for the institutional header image
     sec.bottom_margin = Cm(2.5)
     sec.header_distance = Cm(1.0)
     sec.footer_distance = Cm(1.0)
@@ -71,14 +71,15 @@ def _add_footer_image(doc: Document, image_path: str) -> None:
     run.add_picture(image_path, width=_CONTENT_WIDTH)
 
 
-def _heading_para(doc: Document, text: str) -> None:
+def _heading_para(doc: Document, text: str, order: int = -1) -> None:
     p = doc.add_paragraph()
     p.paragraph_format.space_before = Pt(18)
     p.paragraph_format.space_after = Pt(6)
     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
     p.paragraph_format.line_spacing = 1.5
     p.paragraph_format.first_line_indent = Pt(0)
-    run = p.add_run(text.upper())
+    label = f"{order + 1}.  {text.upper()}" if order >= 0 else text.upper()
+    run = p.add_run(label)
     run.bold = True
     run.font.name = "Arial"
     run.font.size = Pt(12)
@@ -134,7 +135,7 @@ def build_skeleton(template: Template, output_path: Path) -> Path:
             orphan_images.append(p)
 
     for section in sorted(template.sections, key=lambda s: s.order):
-        _heading_para(doc, section.label)
+        _heading_para(doc, section.label, section.order)
         _body_para(doc, "{{ " + section_key(section) + " }}")
         for placeholder in images_by_section.get(section.id, []):
             _add_image_placeholder(doc, placeholder)
