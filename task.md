@@ -46,18 +46,30 @@
 
 ---
 
+## Sessão 2026-07-02 (tarde) — Formatação DOCX ✅
+
+### Concluído
+- [x] **Block quotes**: `_postprocess_paragraphs()` detecta parágrafos que abrem com `"` e
+  aplica `left_indent=5cm`, `italic=True`, alinhamento justificado
+- [x] **Mojibake CP1252**: `_sanitize_text()` corrige sequências `â€œ` → `"`, lone surrogate
+  U+DC9D → `"`, remove soft hyphens
+- [x] **Margens A4**: left=2cm, right=2cm, top=2.8cm, header_distance=0.43cm
+- [x] **Cabeçalho/rodapé largura total**: imagem renderizada em 210mm com indent -2cm
+  (compensa margem esquerda), ocupa toda a largura da página
+- [x] **Caption figuras**: Arial 11pt (era 10pt)
+- [x] **Scripts fix_*.py**: adicionados ao .gitignore
+
+---
+
 ## Pendente — Próxima sessão ⏳
 
-- [ ] **Testar no app real (browser)**: abrir o formulário, preencher variáveis (Vestígio,
-  Lacre nº etc.) e verificar que os labels aparecem corretos na UI (confirmar que UTF-8
-  está ok no browser)
-- [ ] **Upload de imagem inline**: testar o fluxo de upload de imagem dentro de uma seção
-  (Figura 02 / Figura 03) e verificar que o DOCX gerado inclui a imagem na posição certa
+- [ ] **Reiniciar app + re-confirmar template**: para carregar o novo código do cabeçalho
+  full-width; fechar Factor, reabrir, abrir TemplateStructureEditor, clicar Confirmar
+- [ ] **Upload de imagem inline (Figura 01)**: usuário quer adicionar foto do vestígio
+  no formulário — testar o fluxo de upload de imagem dentro da seção "Material Recebido"
+  e verificar que aparece no DOCX na posição certa
 - [ ] **Limpar drafts obsoletos**: 5 drafts antigos na DB (REP 28203, test_laudo etc.)
   — apagar ou deixar acumular conforme preferência do usuário
-- [ ] **Scripts de migração avulsos**: fix_oficio.py, fix_paragraphs.py, fix_paragraphs2.py,
-  fix_sections.py, fix_sections2.py, recreate_confirmed.py — adicionar ao .gitignore
-  ou commitar como histórico
 
 ---
 
