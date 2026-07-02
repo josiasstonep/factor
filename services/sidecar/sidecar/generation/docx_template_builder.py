@@ -8,7 +8,7 @@ from docx.shared import Cm, Mm, Pt
 from sidecar.generation.context_keys import image_key, section_key
 from sidecar.models.template import Template, TemplateImagePlaceholder
 
-_CONTENT_WIDTH = Mm(210) - Cm(3.0) - Cm(2.0)  # A4 minus margins
+_CONTENT_WIDTH = Mm(210) - Cm(2.0) - Cm(2.0)  # A4 minus left+right margins
 
 
 def _apply_global_style(doc: Document) -> None:
@@ -45,11 +45,11 @@ def _setup_page(doc: Document) -> None:
     sec = doc.sections[0]
     sec.page_height = Mm(297)
     sec.page_width = Mm(210)
-    sec.left_margin = Cm(3.0)
+    sec.left_margin = Cm(2.0)
     sec.right_margin = Cm(2.0)
-    sec.top_margin = Cm(4.0)   # extra room for the institutional header image
-    sec.bottom_margin = Cm(2.5)
-    sec.header_distance = Cm(1.0)
+    sec.top_margin = Cm(2.8)    # body starts 2.8cm from top (below 3-col header)
+    sec.bottom_margin = Cm(2.0)
+    sec.header_distance = Cm(0.43)  # header starts 0.43cm from top edge
     sec.footer_distance = Cm(1.0)
 
 
@@ -107,7 +107,7 @@ def _add_image_placeholder(doc: Document, placeholder: TemplateImagePlaceholder)
     r = caption.add_run(placeholder.label)
     r.bold = True
     r.font.name = "Arial"
-    r.font.size = Pt(10)
+    r.font.size = Pt(11)
     img_para = doc.add_paragraph("{{ " + image_key(placeholder) + " }}")
     img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     img_para.paragraph_format.first_line_indent = Pt(0)

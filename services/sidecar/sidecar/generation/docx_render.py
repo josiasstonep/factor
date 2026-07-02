@@ -15,21 +15,34 @@ _Q_CLOSE = {chr(0x201D), chr(0xBB), chr(0x2019), chr(0x22)}  # “ » ‘ “
 _ELLIPSIS_BRACKET = chr(91) + chr(46) * 3 + chr(93)  # “[...]”
 
 
+_MOJIBAKE = {
+    chr(0xE2) + chr(0x20AC) + chr(0x0153): chr(0x201C),   # " LEFT DOUBLE QUOTATION MARK
+    chr(0xE2) + chr(0x20AC) + chr(0x009D): chr(0x201D),   # " RIGHT DOUBLE QUOTATION MARK
+    chr(0xE2) + chr(0x20AC) + chr(0x2122): chr(0x2019),   # ' RIGHT SINGLE QUOTATION MARK
+    chr(0xE2) + chr(0x20AC) + chr(0x02DC): chr(0x2018),   # ' LEFT SINGLE QUOTATION MARK
+    chr(0xE2) + chr(0x20AC) + chr(0x201C): chr(0x2013),   # – EN DASH
+    chr(0xE2) + chr(0x20AC) + chr(0x201D): chr(0x2014),   # — EM DASH
+    chr(0xC2) + chr(0xBB): chr(0xBB),                     # » RIGHT-POINTING DOUBLE ANGLE QUOTATION
+}
+
+
 def _sanitize_text(text: str) -> str:
-    """Remove characters that are invalid in XML/DOCX:
+    """Fix text extracted from PDF before writing to DOCX XML:
+    - CP1252 mojibake: PDF bytes decoded byte-by-byte via CP1252 instead of UTF-8
     - Lone surrogates (U+D800..U+DFFF) from corrupt PDF encoding
-    - Soft hyphens (U+00AD) that end up as literal text instead of formatting hints
+    - Soft hyphens (U+00AD) that appear as literal chars in DOCX text
     """
+    for seq, replacement in _MOJIBAKE.items():
+        text = text.replace(seq, replacement)
     cleaned = []
     for ch in text:
         cp = ord(ch)
         if 0xD800 <= cp <= 0xDFFF:
-            # Replace lone surrogate with the right double quote (its likely intended value)
             if cp == 0xDC9D:
                 cleaned.append(chr(0x201D))  # RIGHT DOUBLE QUOTATION MARK
-            # else drop it
+            # else drop lone surrogate
         elif cp == 0x00AD:
-            pass  # strip soft hyphens — they become literal text in DOCX
+            pass  # strip soft hyphens
         else:
             cleaned.append(ch)
     return "".join(cleaned)
@@ -127,12 +140,14 @@ def _postprocess_paragraphs(docx_path: Path) -> None:
             in_quote = True
 
         if in_quote:
-            p.paragraph_format.left_indent = Cm(3.0)
-            p.paragraph_format.right_indent = Cm(1.0)
+            p.paragraph_format.left_indent = Cm(5.0)   # ~5cm from margin per spec
+            p.paragraph_format.right_indent = Pt(0)
             p.paragraph_format.first_line_indent = Pt(0)
             p.paragraph_format.space_before = Pt(0)
             p.paragraph_format.space_after = Pt(0)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            for run in p.runs:
+                run.italic = True   # quote blocks use italic per spec recommendation
 
             if _is_quote_end(text):
                 in_quote = False
