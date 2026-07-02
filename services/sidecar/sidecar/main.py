@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from sidecar.config import UPLOADS_DIR
+from sidecar.config import UPLOADS_DIR, TEMPLATES_DIR
 from sidecar.db import init_db
 from sidecar.routers import ai, reports, templates, uploads
 
@@ -24,8 +24,10 @@ app.include_router(uploads.router)
 app.include_router(reports.router)
 app.include_router(ai.router)
 
-# Serve uploaded images back to the renderer for previewing (e.g. <img src="/uploads/images/...">)
+# Serve uploaded images back to the renderer for previewing
 app.mount("/uploads-static", StaticFiles(directory=UPLOADS_DIR), name="uploads-static")
+# Serve template assets (header/footer/figure previews extracted from source PDF)
+app.mount("/templates-static", StaticFiles(directory=TEMPLATES_DIR), name="templates-static")
 
 
 @app.get("/health")

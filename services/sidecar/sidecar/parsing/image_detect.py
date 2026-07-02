@@ -1,10 +1,14 @@
+import re
+from pathlib import Path
 from uuid import uuid4
 
 from rapidfuzz import fuzz
 
-from sidecar.models.template import ImagePlaceholderType, TemplateImagePlaceholder
+from sidecar.models.template import ImagePlaceholderType, TemplateImagePlaceholder, TemplateSection
 from sidecar.parsing.pdf_extract import PdfImage, PdfLine
 from sidecar.parsing.text_utils import normalize_for_match, title_case_label
+
+_FIGURE_RE = re.compile(r'Figura\s+(\d{1,2})\s*[–—\-]\s*([^\n]+)')
 
 IMAGE_KEYWORDS: dict[ImagePlaceholderType, list[str]] = {
     ImagePlaceholderType.VESTIGIO: ["vestigio", "objeto", "material apreendido", "evidencia"],
@@ -42,6 +46,61 @@ def _classify(text: str) -> ImagePlaceholderType:
                 best_score = score
                 best_type = img_type
     return best_type if best_score >= FUZZY_THRESHOLD else ImagePlaceholderType.CUSTOM
+
+
+def detect_figures_from_text(
+    sections: list[TemplateSection],
+    pdf_path: Path,
+    output_dir: Path,
+    template_id: str,
+) -> list[TemplateImagePlaceholder]:
+    """Detect 'Figura XX – caption' references in section text and render the
+    corresponding page region as a PNG for use as a reference preview."""
+    import fitz  # PyMuPDF — optional dependency guard
+
+    doc = fitz.open(str(pdf_path))
+    placeholders: list[TemplateImagePlaceholder] = []
+
+    for section in sections:
+        for m in _FIGURE_RE.finditer(section.default_text or ""):
+            fig_num = m.group(1).zfill(2)
+            caption = f"Figura {fig_num} - {m.group(2).strip()}"
+            preview_path = _render_figure_region(doc, fig_num, output_dir, template_id)
+            placeholders.append(TemplateImagePlaceholder(
+                id=str(uuid4()),
+                type=ImagePlaceholderType.CUSTOM,
+                label=caption,
+                order=int(fig_num),
+                max_count=1,
+                section_id=section.id,
+                preview_image_path=str(preview_path) if preview_path else None,
+            ))
+
+    doc.close()
+    return sorted(placeholders, key=lambda p: p.order)
+
+
+def _render_figure_region(doc, fig_num_str: str, output_dir: Path, template_id: str) -> Path | None:
+    needle = f"Figura {fig_num_str}"
+    for page in doc:
+        blocks = sorted(page.get_text("blocks"), key=lambda b: b[1])
+        caption_y = None
+        for b in blocks:
+            if b[6] == 0 and b[4].lstrip().startswith(needle):
+                caption_y = b[1]
+                break
+        if caption_y is None:
+            continue
+        prev_bottom = max((b[3] for b in blocks if b[6] == 0 and b[3] < caption_y - 5), default=0)
+        if caption_y - prev_bottom < 20:
+            continue
+        import fitz
+        rect = fitz.Rect(50, prev_bottom + 2, 550, caption_y - 2)
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=rect)
+        out_path = output_dir / f"{template_id}_figure_{fig_num_str}.png"
+        pix.save(str(out_path))
+        return out_path
+    return None
 
 
 def detect_images(images: list[PdfImage], lines: list[PdfLine]) -> list[TemplateImagePlaceholder]:

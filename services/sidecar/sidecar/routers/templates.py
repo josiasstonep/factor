@@ -12,6 +12,7 @@ from sidecar.config import TEMPLATES_DIR, UPLOADS_DIR
 from sidecar.generation.docx_template_builder import build_skeleton
 from sidecar.models.template import Template, TemplateUpdate, TemplateVariable
 from sidecar.parsing.header_footer_extract import extract_header_footer
+from sidecar.parsing.image_detect import detect_figures_from_text
 from sidecar.parsing.orchestrator import PdfHasNoTextLayerError, parse_pdf
 
 _REP_FROM_FILENAME = re.compile(r'\bREP[\s_-]?(\d{4,6})[_/\\-](\d{2,4})\b', re.IGNORECASE)
@@ -48,6 +49,15 @@ async def parse_template(file: UploadFile):
                 source_label_detected=None,
                 source_value_detected=rep_value,
             ))
+
+    # Detect "Figura XX – caption" references in section text and extract preview images
+    if not parsed.image_placeholders:
+        try:
+            parsed.image_placeholders = detect_figures_from_text(
+                parsed.sections, pdf_path, TEMPLATES_DIR, template_id
+            )
+        except Exception:
+            pass  # figure detection is best-effort
 
     header_image_path, footer_image_path = extract_header_footer(pdf_path, UPLOADS_DIR)
 

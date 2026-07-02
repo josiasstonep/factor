@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { updateTemplate, uploadImage } from "../api/client";
 import type {
-  ImagePlaceholderType,
   SectionType,
   Template,
   TemplateImagePlaceholder,
@@ -19,12 +18,6 @@ const SECTION_TYPE_LABELS: Record<SectionType, string> = {
   descricao: "Descrição",
   analise: "Análise",
   conclusao: "Conclusão",
-  custom: "Personalizada",
-};
-
-const IMAGE_TYPE_LABELS: Record<ImagePlaceholderType, string> = {
-  vestigio: "Foto de Vestígio",
-  local_crime: "Foto do Local",
   custom: "Personalizada",
 };
 
@@ -51,6 +44,15 @@ function filePathToPreviewUrl(filePath: string): string {
   return "";
 }
 
+function templateFileToUrl(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/templates/");
+  if (parts.length >= 2) {
+    return `http://127.0.0.1:${SIDECAR_PORT}/templates-static/${parts[parts.length - 1]}`;
+  }
+  return "";
+}
+
 export default function TemplateStructureEditor({ template, onConfirmed }: Props) {
   const [name, setName] = useState(template.name);
   const [sections, setSections] = useState<TemplateSection[]>(template.sections);
@@ -69,6 +71,8 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
   );
   const [uploadingHeader, setUploadingHeader] = useState(false);
   const [uploadingFooter, setUploadingFooter] = useState(false);
+  const [uploadingImageId, setUploadingImageId] = useState<string | null>(null);
+  const imageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +86,19 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
 
   function updateImagePlaceholder(id: string, patch: Partial<TemplateImagePlaceholder>) {
     setImagePlaceholders((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  }
+
+  async function handleImageUpload(placeholderId: string, file: File) {
+    setUploadingImageId(placeholderId);
+    setError(null);
+    try {
+      const { file_path } = await uploadImage(file);
+      updateImagePlaceholder(placeholderId, { preview_image_path: file_path });
+    } catch {
+      setError("Falha ao enviar imagem.");
+    } finally {
+      setUploadingImageId(null);
+    }
   }
 
   async function handleHeaderUpload(file: File) {
@@ -336,46 +353,83 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
       <table>
         <thead>
           <tr>
-            <th style={{ width: 160 }}>Tipo</th>
+            <th style={{ width: 140 }}>Imagem</th>
             <th>Rótulo</th>
+            <th style={{ width: 200 }}>Seção</th>
             <th style={{ width: 60 }}></th>
           </tr>
         </thead>
         <tbody>
-          {imagePlaceholders.map((p) => (
-            <tr key={p.id}>
-              <td>
-                <select
-                  value={p.type}
-                  onChange={(e) =>
-                    updateImagePlaceholder(p.id, { type: e.target.value as ImagePlaceholderType })
-                  }
-                >
-                  {Object.entries(IMAGE_TYPE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td>
-                <input
-                  type="text"
-                  value={p.label}
-                  onChange={(e) => updateImagePlaceholder(p.id, { label: e.target.value })}
-                />
-              </td>
-              <td>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setImagePlaceholders((prev) => prev.filter((x) => x.id !== p.id))}
-                >
-                  Apagar
-                </button>
-              </td>
-            </tr>
-          ))}
+          {imagePlaceholders.map((p) => {
+            const previewUrl = p.preview_image_path
+              ? (p.preview_image_path.includes("/images/")
+                  ? filePathToPreviewUrl(p.preview_image_path)
+                  : templateFileToUrl(p.preview_image_path))
+              : null;
+            const isUploading = uploadingImageId === p.id;
+            return (
+              <tr key={p.id} style={{ verticalAlign: "top" }}>
+                <td>
+                  {/* Thumbnail + upload button */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", width: 140 }}>
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt={p.label}
+                        style={{ width: 140, height: 80, objectFit: "cover", borderRadius: 4, border: "1px solid #d1d5db", display: "block" }}
+                      />
+                    ) : (
+                      <div style={{ width: 140, height: 80, background: "#f3f4f6", borderRadius: 4, border: "1px dashed #d1d5db", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#9ca3af" }}>
+                        Sem imagem
+                      </div>
+                    )}
+                    <label style={{ fontSize: 11, color: "#2563eb", cursor: "pointer", fontWeight: 600, textAlign: "center" }}>
+                      {isUploading ? "Enviando…" : previewUrl ? "Substituir" : "Adicionar imagem"}
+                      <input
+                        ref={(el) => { imageInputRefs.current[p.id] = el; }}
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploading}
+                        style={{ display: "none" }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImageUpload(p.id, f); }}
+                      />
+                    </label>
+                  </div>
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    value={p.label}
+                    onChange={(e) => updateImagePlaceholder(p.id, { label: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <select
+                    value={p.section_id ?? ""}
+                    onChange={(e) =>
+                      updateImagePlaceholder(p.id, { section_id: e.target.value || null })
+                    }
+                  >
+                    <option value="">— Sem seção —</option>
+                    {[...sections].sort((a, b) => a.order - b.order).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.order + 1}. {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setImagePlaceholders((prev) => prev.filter((x) => x.id !== p.id))}
+                  >
+                    Apagar
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <button
@@ -384,7 +438,7 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
         onClick={() =>
           setImagePlaceholders((p) => [
             ...p,
-            { id: uid(), type: "custom", label: "Nova Imagem", order: p.length, max_count: 1, page_hint: null },
+            { id: uid(), type: "custom", label: "Nova Imagem", order: p.length, max_count: 1, page_hint: null, section_id: null },
           ])
         }
       >

@@ -1,5 +1,6 @@
 """
 Confirms the T.I. laudo template, enforcing the exact 8-chapter structure.
+Extracts figure images from the PDF so they appear as reference previews in the UI.
 
 Targets the most-recent draft for the T.I. base laudo (REP 32214 or any PDF
 that, after parsing, produces HISTÓRICO + CONCLUSÃO sections).
@@ -10,6 +11,7 @@ Run from: services/sidecar/
 import re, sys
 from pathlib import Path
 from uuid import uuid4
+import fitz  # PyMuPDF
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -140,12 +142,48 @@ for s in clean:
     if s.default_text:
         s.default_text = re.sub(r'\s+\d+\.\s*$', '', s.default_text).strip()
 
-# Detect Figura references
+def extract_figure_image(pdf_path: Path, fig_num_str: str, out_dir: Path, template_id: str) -> str | None:
+    """Render the page region between text and the figure caption as a PNG."""
+    try:
+        doc = fitz.open(str(pdf_path))
+        needle = f"Figura {fig_num_str}"  # keep zero-padded (e.g. "Figura 02")
+        for page in doc:
+            full_text = page.get_text()
+            if needle not in full_text:
+                continue
+            blocks = sorted(page.get_text("blocks"), key=lambda b: b[1])
+            # Find caption block Y top — block must START with "Figura XX"
+            caption_y = None
+            for b in blocks:
+                if b[6] == 0 and b[4].lstrip().startswith(needle):
+                    caption_y = b[1]
+                    break
+            if caption_y is None:
+                continue
+            # Find the bottom of the last text block that ends before the caption
+            prev_bottom = 0
+            for b in blocks:
+                if b[3] < caption_y - 5 and b[6] == 0:
+                    prev_bottom = max(prev_bottom, b[3])
+            if caption_y - prev_bottom < 20:
+                continue  # no figure region found
+            rect = fitz.Rect(50, prev_bottom + 2, 550, caption_y - 2)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=rect)
+            out_path = out_dir / f"{template_id}_figure_{fig_num_str}.png"
+            pix.save(str(out_path))
+            return str(out_path)
+    except Exception as e:
+        print(f"  Warning: could not extract figure image {fig_num_str}: {e}")
+    return None
+
+
+# Detect Figura references and extract their images from the PDF
 new_placeholders = []
 for s in clean:
     for m in FIGURE_RE.finditer(s.default_text or ""):
         fig_num = m.group(1).zfill(2)
         caption = f"Figura {fig_num} - {m.group(2).strip()}"
+        preview_path = extract_figure_image(pdf_path, fig_num, DATA_DIR / "templates", template_id)
         p = TemplateImagePlaceholder(
             id=str(uuid4()),
             type=ImagePlaceholderType.CUSTOM,
@@ -153,9 +191,11 @@ for s in clean:
             order=int(fig_num),
             max_count=1,
             section_id=s.id,
+            preview_image_path=preview_path,
         )
         new_placeholders.append(p)
-        print(f"  Image: {caption[:60]!r} -> [{s.order}] {s.label!r}")
+        preview_tag = " [preview extracted]" if preview_path else ""
+        print(f"  Image: {caption[:60]!r} -> [{s.order}] {s.label!r}{preview_tag}")
 
 skeleton_path = DATA_DIR / "templates" / f"{template_id}_skeleton.docx"
 

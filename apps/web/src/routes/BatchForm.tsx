@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { generateBatch, uploadImage } from "../api/client";
 import type { GenerateBatchResponse, ReportInputCreate, Template, TemplateVariable } from "../api/types";
 
@@ -74,6 +74,16 @@ function filePathToPreviewUrl(filePath: string): string {
   const parts = normalized.split("/images/");
   if (parts.length >= 2) {
     return `http://127.0.0.1:${SIDECAR_PORT}/uploads-static/images/${parts[parts.length - 1]}`;
+  }
+  return "";
+}
+
+function templateFileToUrl(filePath: string): string {
+  // Converts an absolute path inside .data/templates/ to a /templates-static/ URL
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/templates/");
+  if (parts.length >= 2) {
+    return `http://127.0.0.1:${SIDECAR_PORT}/templates-static/${parts[parts.length - 1]}`;
   }
   return "";
 }
@@ -343,7 +353,12 @@ export default function BatchForm({ template, onGenerated }: Props) {
                       label={p.label}
                       uploading={row.uploadingId === p.id}
                       previewUrl={row.imagePreviewUrls[p.id] ?? null}
+                      referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
                       onFile={(file) => void handleImageChange(row.rowId, p.id, file)}
+                      onRemove={() => updateRow(row.rowId, {
+                        imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
+                        imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
+                      })}
                     />
                   ))}
                 </div>
@@ -352,24 +367,23 @@ export default function BatchForm({ template, onGenerated }: Props) {
           );
         })}
 
-        {/* ── Orphan images (no section assigned) ── */}
+        {/* Orphan images (no section assigned) — rendered without a chapter heading */}
         {orphanImages.length > 0 && (
-          <div className="doc-section">
-            <div className="doc-section-heading">
-              <span className="doc-section-number">{sortedSections.length + 1}</span>
-              IMAGENS / ANEXOS
-            </div>
-            <div className="doc-images">
-              {orphanImages.map((p) => (
-                <ImageZone
-                  key={p.id}
-                  label={p.label}
-                  uploading={row.uploadingId === p.id}
-                  previewUrl={row.imagePreviewUrls[p.id] ?? null}
-                  onFile={(file) => void handleImageChange(row.rowId, p.id, file)}
-                />
-              ))}
-            </div>
+          <div className="doc-images" style={{ margin: "12px 0 0 0" }}>
+            {orphanImages.map((p) => (
+              <ImageZone
+                key={p.id}
+                label={p.label}
+                uploading={row.uploadingId === p.id}
+                previewUrl={row.imagePreviewUrls[p.id] ?? null}
+                referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
+                onFile={(file) => void handleImageChange(row.rowId, p.id, file)}
+                onRemove={() => updateRow(row.rowId, {
+                  imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
+                  imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
+                })}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -390,20 +404,44 @@ export default function BatchForm({ template, onGenerated }: Props) {
 interface ImageZoneProps {
   label: string;
   uploading: boolean;
-  previewUrl: string | null;
+  previewUrl: string | null;        // user-uploaded image
+  referenceUrl?: string | null;     // image from the original PDF (for reference)
   onFile: (file: File) => void;
+  onRemove?: () => void;
 }
 
-function ImageZone({ label, uploading, previewUrl, onFile }: ImageZoneProps) {
+function ImageZone({ label, uploading, previewUrl, referenceUrl, onFile, onRemove }: ImageZoneProps) {
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) onFile(file);
+  }
+
+  const activeUrl = previewUrl ?? null;
+
   return (
     <div className="doc-image-zone">
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-        {label}
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ flex: 1 }}>{label}</span>
+        {activeUrl && onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: "0 4px", fontWeight: 700 }}
+            title="Remover imagem"
+          >
+            ✕ Remover
+          </button>
+        )}
       </div>
 
-      {previewUrl ? (
+      {activeUrl ? (
         <div>
-          <img src={previewUrl} alt={label} className="doc-image-preview" />
+          <img src={activeUrl} alt={label} className="doc-image-preview" />
           <div className="doc-image-caption">{label}</div>
           <div className="doc-image-change">
             <label style={{ fontSize: 12, color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>
@@ -421,19 +459,51 @@ function ImageZone({ label, uploading, previewUrl, onFile }: ImageZoneProps) {
             </label>
           </div>
         </div>
+      ) : referenceUrl ? (
+        /* Show the reference image from the PDF with an overlay to replace it */
+        <div style={{ position: "relative" }}>
+          <img src={referenceUrl} alt={label} className="doc-image-preview" style={{ opacity: 0.55, filter: "grayscale(30%)" }} />
+          <div
+            className={`doc-image-drop${dragging ? " doc-image-drop--drag" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => inputRef.current?.click()}
+            style={{ cursor: "pointer", position: "absolute", inset: 0, background: "rgba(255,255,255,0.62)", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #93c5fd", borderRadius: 6 }}
+          >
+            <input ref={inputRef} type="file" accept="image/*" disabled={uploading} style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onFile(file); }} />
+            <div className="doc-image-drop-label" style={{ textAlign: "center" }}>
+              {uploading ? "Enviando…" : dragging ? <strong>Solte aqui</strong> : <><strong>Substituir</strong> — clique ou arraste</>}
+            </div>
+          </div>
+        </div>
       ) : (
-        <div className="doc-image-drop">
+        <div
+          className={`doc-image-drop${dragging ? " doc-image-drop--drag" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          style={{ cursor: "pointer" }}
+        >
           <input
+            ref={inputRef}
             type="file"
             accept="image/*"
             disabled={uploading}
+            style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) onFile(file);
             }}
           />
           <div className="doc-image-drop-label">
-            {uploading ? "Enviando…" : <><strong>Clique para selecionar</strong> ou arraste uma imagem</>}
+            {uploading
+              ? "Enviando…"
+              : dragging
+              ? <strong>Solte aqui</strong>
+              : <><strong>Clique ou arraste</strong> uma imagem aqui</>
+            }
           </div>
         </div>
       )}

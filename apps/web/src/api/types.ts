@@ -29,6 +29,7 @@ export interface TemplateImagePlaceholder {
   max_count: number;
   page_hint: number | null;
   section_id?: string | null;
+  preview_image_path?: string | null;
 }
 
 export interface Template {

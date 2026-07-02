@@ -47,6 +47,7 @@ class TemplateImagePlaceholder(BaseModel):
     max_count: int = 1
     page_hint: Optional[int] = None
     section_id: Optional[str] = None  # section this image belongs to; None = orphan (appended at end)
+    preview_image_path: Optional[str] = None  # image extracted from the source PDF for reference
 
 
 class Template(BaseModel):
