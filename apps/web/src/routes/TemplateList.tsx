@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteTemplate, listTemplates, parseTemplate, renameTemplate } from "../api/client";
+import { deleteTemplate, getTemplate, listTemplates, parseTemplate, renameTemplate } from "../api/client";
 import type { Template } from "../api/types";
 
 interface Props {
@@ -15,6 +15,7 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,6 +57,18 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
       setError("Falha ao renomear.");
     } finally {
       setRenamingId(null);
+    }
+  }
+
+  async function handleEditStructure(id: string) {
+    setEditingId(id);
+    try {
+      const fresh = await getTemplate(id);
+      onUploadNew(fresh);
+    } catch {
+      setError("Falha ao carregar template.");
+    } finally {
+      setEditingId(null);
     }
   }
 
@@ -162,6 +175,16 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
                           type="button"
                           className="secondary"
                           style={{ padding: "4px 10px", fontSize: 12 }}
+                          title="Editar estrutura"
+                          disabled={editingId === t.id}
+                          onClick={() => void handleEditStructure(t.id)}
+                        >
+                          {editingId === t.id ? "…" : "Estrutura"}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ padding: "4px 10px", fontSize: 12 }}
                           title="Renomear"
                           onClick={() => startRename(t)}
                         >
@@ -243,14 +266,25 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
                 <tr key={t.id}>
                   <td style={{ fontSize: 12 }}>{t.name || t.source_pdf_filename}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="danger"
-                      style={{ padding: "3px 10px", fontSize: 11 }}
-                      onClick={() => void confirmDelete(t.id)}
-                    >
-                      Deletar
-                    </button>
+                    <span style={{ display: "flex", gap: 6 }}>
+                      <button
+                        type="button"
+                        className="secondary"
+                        style={{ padding: "3px 10px", fontSize: 11 }}
+                        disabled={editingId === t.id}
+                        onClick={() => void handleEditStructure(t.id)}
+                      >
+                        {editingId === t.id ? "…" : "Editar"}
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        style={{ padding: "3px 10px", fontSize: 11 }}
+                        onClick={() => void confirmDelete(t.id)}
+                      >
+                        Deletar
+                      </button>
+                    </span>
                   </td>
                 </tr>
               ))}

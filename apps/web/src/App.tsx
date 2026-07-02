@@ -32,6 +32,17 @@ export default function App() {
     return "";
   }
 
+  function navigateTo(key: Step) {
+    if (key === "upload") {
+      // "1. Upload" goes back to template selection (home)
+      setTemplate(null);
+      setResult(null);
+      setStep("home");
+    } else {
+      setStep(key);
+    }
+  }
+
   const aiImprovableSectionIds = new Set(
     (template?.sections ?? [])
       .filter((s) => s.is_ai_improvable)
@@ -54,11 +65,20 @@ export default function App() {
 
       {showWizard && (
         <div className="steps">
-          {WIZARD_STEPS.map((s) => (
-            <span key={s.key} className={`step-chip ${stepStatus(s.key)}`}>
-              {s.label}
-            </span>
-          ))}
+          {WIZARD_STEPS.map((s) => {
+            const status = stepStatus(s.key);
+            return (
+              <span
+                key={s.key}
+                className={`step-chip ${status}`}
+                style={{ cursor: status === "done" ? "pointer" : "default" }}
+                title={status === "done" ? "Voltar a este passo" : undefined}
+                onClick={() => { if (status === "done") navigateTo(s.key); }}
+              >
+                {s.label}
+              </span>
+            );
+          })}
         </div>
       )}
 
