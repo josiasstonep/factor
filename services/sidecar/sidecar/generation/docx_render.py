@@ -229,16 +229,35 @@ def _postprocess_paragraphs(docx_path: Path) -> None:
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             for run in p.runs:
                 run.italic = True
+                run.font.name = "Arial"
+                run.font.size = Pt(12)
 
             if _is_quote_end(text):
                 in_quote = False
 
-        elif _HEADING_RE.match(text) or _CAPTION_RE.match(text) or not text:
-            # section headings and blank paragraphs: leave as-is
-            pass
+        elif _HEADING_RE.match(text) or not text:
+            # Section headings: enforce compact spacing + explicit Arial
+            if _HEADING_RE.match(text):
+                p.paragraph_format.space_before = Pt(12)
+                p.paragraph_format.space_after = Pt(0)
+                p.paragraph_format.first_line_indent = Pt(0)
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+                p.paragraph_format.line_spacing = 1.5
+                for run in p.runs:
+                    run.font.name = "Arial"
+                    run.font.size = Pt(12)
+
+        elif _CAPTION_RE.match(text):
+            # Figure captions: center, no indent, compact — leave alignment/bold as set
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(8)
+            p.paragraph_format.first_line_indent = Pt(0)
+            for run in p.runs:
+                run.font.name = "Arial"
+                run.font.size = Pt(11)
 
         else:
-            # Body paragraph: enforce justify + 1.5 spacing
+            # Body paragraph: enforce justify + 1.5 spacing + explicit Arial on every run
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             pf = p.paragraph_format
             pf.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
@@ -248,5 +267,8 @@ def _postprocess_paragraphs(docx_path: Path) -> None:
             # List items (bullet or "Vestígio N:") should NOT carry first-line indent
             if _LIST_ITEM_RE.match(text) or text.startswith(chr(0x00B7)):
                 pf.first_line_indent = Pt(0)
+            for run in p.runs:
+                run.font.name = "Arial"
+                run.font.size = Pt(12)
 
     doc.save(str(docx_path))

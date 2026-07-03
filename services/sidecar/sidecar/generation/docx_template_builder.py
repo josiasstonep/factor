@@ -12,8 +12,7 @@ _CONTENT_WIDTH = Mm(210) - Cm(2.0) - Cm(2.0)  # A4 minus left+right margins
 
 
 def _apply_global_style(doc: Document) -> None:
-    # "Normal" base style: Arial 12pt, 1.5 spacing, first-line indent 1.25cm, justified
-    # All paragraph styles inherit from Normal, so this cascades automatically.
+    # Normal: Arial 12pt, 1.5 spacing, justified, first-line indent 1.25cm
     try:
         normal = doc.styles["Normal"]
         normal.font.name = "Arial"
@@ -27,7 +26,20 @@ def _apply_global_style(doc: Document) -> None:
         pf.first_line_indent = Cm(1.25)
     except KeyError:
         pass
-    # Headings: same font but no first-line indent
+    # "No Spacing" style: must stay single-spaced (used by captions, headers, etc.)
+    for ns_name in ("No Spacing", "Sem Espaçamento", "Sem Espacamento"):
+        try:
+            ns = doc.styles[ns_name]
+            ns.font.name = "Arial"
+            ns.font.size = Pt(12)
+            pf = ns.paragraph_format
+            pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
+            pf.space_before = Pt(0)
+            pf.space_after = Pt(0)
+            break
+        except KeyError:
+            pass
+    # Heading styles: compact spacing, no first-line indent
     for style_name in ("Heading 1", "Heading 2", "Heading 3"):
         try:
             style = doc.styles[style_name]
@@ -35,8 +47,8 @@ def _apply_global_style(doc: Document) -> None:
             style.font.size = Pt(12)
             pf = style.paragraph_format
             pf.first_line_indent = Pt(0)
-            pf.space_before = Pt(18)
-            pf.space_after = Pt(6)
+            pf.space_before = Pt(6)
+            pf.space_after = Pt(0)
         except KeyError:
             pass
 
@@ -47,10 +59,10 @@ def _setup_page(doc: Document) -> None:
     sec.page_width = Mm(210)
     sec.left_margin = Cm(2.0)
     sec.right_margin = Cm(2.0)
-    sec.top_margin = Cm(2.8)    # body starts 2.8cm from top (below 3-col header)
+    sec.top_margin = Cm(2.8)       # body starts 2.8cm below top (below header image)
     sec.bottom_margin = Cm(2.0)
-    sec.header_distance = Cm(0.43)  # header starts 0.43cm from top edge
-    sec.footer_distance = Cm(1.0)
+    sec.header_distance = Cm(0.43) # header image starts 0.43cm from top edge
+    sec.footer_distance = Pt(0)    # no wasted footer margin
 
 
 def _add_header_image(doc: Document, image_path: str) -> None:
@@ -82,11 +94,13 @@ def _add_footer_image(doc: Document, image_path: str) -> None:
 
 def _heading_para(doc: Document, text: str, order: int = -1) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(18)
-    p.paragraph_format.space_after = Pt(6)
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p.paragraph_format.space_before = Pt(12)
+    p.paragraph_format.space_after = Pt(0)
     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
     p.paragraph_format.line_spacing = 1.5
     p.paragraph_format.first_line_indent = Pt(0)
+    p.paragraph_format.left_indent = Pt(0)
     label = f"{order + 1}.  {text.upper()}" if order >= 0 else text.upper()
     run = p.add_run(label)
     run.bold = True
