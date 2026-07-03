@@ -10,3 +10,7 @@ def section_key(section: TemplateSection) -> str:
 
 def image_key(placeholder: TemplateImagePlaceholder) -> str:
     return f"image_{placeholder.id.replace('-', '_')}"
+
+
+def caption_key(placeholder: TemplateImagePlaceholder) -> str:
+    return f"caption_{placeholder.id.replace('-', '_')}"

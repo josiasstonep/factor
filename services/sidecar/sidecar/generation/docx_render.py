@@ -6,7 +6,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.shared import Cm, Mm, Pt
 from docxtpl import DocxTemplate, InlineImage
 
-from sidecar.generation.context_keys import image_key, section_key
+from sidecar.generation.context_keys import caption_key, image_key, section_key
 from sidecar.models.report_input import ReportInput
 from sidecar.models.template import Template
 
@@ -56,6 +56,16 @@ def _resolve_inline_vars(text: str, var_context: dict[str, str]) -> str:
     return text
 
 
+def _inject_var_placeholders(text: str, variables) -> str:
+    """Replace detected source values in text with {{key}} tokens (mirrors JS injectPlaceholders)."""
+    for var in variables:
+        val = var.source_value_detected or ""
+        if len(val) < 6:
+            continue
+        text = re.sub(re.escape(val), f"{{{{{var.key}}}}}", text)
+    return text
+
+
 def build_render_context(
     template: Template,
     report_input: ReportInput,
@@ -80,6 +90,10 @@ def build_render_context(
         # \a = docxtpl paragraph break; \n in stored text = paragraph separator
         context[section_key(section)] = resolved.replace("\n", "\a")
 
+    for placeholder in template.image_placeholders:
+        label = _inject_var_placeholders(_sanitize_text(placeholder.label), template.variables)
+        context[caption_key(placeholder)] = _resolve_inline_vars(label, var_context)
+
     return context
 
 
@@ -102,9 +116,15 @@ def render_docx(
         else:
             context[image_key(placeholder)] = ""
 
+    var_context: dict[str, str] = {
+        var.key: next((v.value for v in report_input.variables if v.variable_id == var.id), "")
+        for var in template.variables
+    }
+
     tpl.render(context)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tpl.save(output_path)
+    _postprocess_captions(output_path, template, var_context)
     _postprocess_paragraphs(output_path)
     return output_path
 
@@ -127,6 +147,31 @@ def _is_quote_end(text: str) -> bool:
 _HEADING_RE = re.compile(r'^\d+\.\s')
 _CAPTION_RE = re.compile(r'^Figura\s+\d+', re.IGNORECASE)
 _LIST_ITEM_RE = re.compile(r'^[·•–—•·\-]\s|^Vest[ií]gio\s+\S+', re.UNICODE)
+
+
+def _postprocess_captions(docx_path: Path, template, var_context: dict[str, str]) -> None:
+    """Substitute variable values inside figure captions.
+
+    Works for both skeleton types:
+    - New skeletons: caption is already a resolved Jinja2 variable — no-op.
+    - Old skeletons: caption contains the literal source value from the original PDF;
+      we inject {{key}} then resolve with the current values.
+    """
+    doc = Document(str(docx_path))
+    changed = False
+    for p in doc.paragraphs:
+        text = p.text.strip()
+        if not _CAPTION_RE.match(text):
+            continue
+        new_text = _inject_var_placeholders(text, template.variables)
+        new_text = _resolve_inline_vars(new_text, var_context)
+        if new_text != text and p.runs:
+            p.runs[0].text = new_text
+            for run in p.runs[1:]:
+                run.text = ""
+            changed = True
+    if changed:
+        doc.save(str(docx_path))
 
 
 def _postprocess_paragraphs(docx_path: Path) -> None:

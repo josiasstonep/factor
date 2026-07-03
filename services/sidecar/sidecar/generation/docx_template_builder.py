@@ -5,7 +5,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.shared import Cm, Mm, Pt
 
-from sidecar.generation.context_keys import image_key, section_key
+from sidecar.generation.context_keys import caption_key, image_key, section_key
 from sidecar.models.template import Template, TemplateImagePlaceholder
 
 _CONTENT_WIDTH = Mm(210) - Cm(2.0) - Cm(2.0)  # A4 minus left+right margins
@@ -113,7 +113,7 @@ def _add_image_placeholder(doc: Document, placeholder: TemplateImagePlaceholder)
     caption.paragraph_format.space_after = Pt(4)
     caption.paragraph_format.first_line_indent = Pt(0)
     caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = caption.add_run(placeholder.label)
+    r = caption.add_run("{{ " + caption_key(placeholder) + " }}")
     r.bold = True
     r.font.name = "Arial"
     r.font.size = Pt(11)
