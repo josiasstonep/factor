@@ -85,15 +85,57 @@
 
 ---
 
+## Sessão 2026-07-03 — Variáveis padrão + Preset quick-select + Polish ✅
+
+### Concluído
+- [x] **`apps/web/src/utils/standardVars.ts`** (novo): `mergeStandardVars()` injeta
+  Modelo, IMEI 1, IMEI 2, Nome do Perito, Circunscrição se ausentes do template.
+  IDs estáveis `__std__${key}` para consistência entre componentes.
+- [x] **`apps/web/src/utils/varPresets.ts`** (novo): save/load/delete de atalhos em
+  `localStorage` por chave de variável (`factor_presets_${key}`), max 20 por campo.
+- [x] **`TemplateStructureEditor.tsx`**: state de `variables` inicializado com
+  `mergeStandardVars()` → PUT confirm sempre inclui as 5 variáveis padrão.
+- [x] **`BatchForm.tsx`**: usa `effectiveTemplate` com `mergeStandardVars()` para
+  mostrar todos os campos mesmo em templates antigos; componente `VarField` com:
+  - Botão ★ salva valor atual como atalho em localStorage
+  - Botão ▾ abre dropdown com atalhos salvos (click-to-fill, × para deletar)
+  - Click-outside fecha o dropdown automaticamente
+- [x] **`BatchPreview.tsx`**: usa `effectiveTemplate` para preview e payload de geração
+- [x] **CSS**: `overflow: hidden` removido do `.batch-case` (prevenia clipping do dropdown);
+  `.batch-case-header` ganhou `border-radius: 10px 10px 0 0` próprio
+- [x] **Numeração**: GenerationReview "4." → "5.", AiImprove "5." → "6."
+- [x] **`DEVELOPMENT.md`** (novo): guia completo de setup para novo PC + handoff
+
+### Estado do repositório
+- Branch: `main` — 2 commits novos na sessão: `2c9132f`, `7001134`
+- GitHub: `https://github.com/josiasstonep/factor.git` — pushed ✅
+- TypeScript: 0 erros
+
+---
+
 ## Pendente — Próxima sessão ⏳
 
-- [ ] **Testar Figura 01 no upload**: reiniciar sidecar (código novo), fazer upload do PDF
-  REP 32214_2026 → verificar que Figura 01 aparece na lista de imagens → Confirmar → gerar DOCX
+### Setup no novo PC (fazer primeiro)
+1. `git clone https://github.com/josiasstonep/factor.git`
+2. `cd factor && npm install`
+3. `cd services/sidecar && python -m venv .venv && .venv\Scripts\Activate.ps1 && pip install -r requirements.txt`
+4. `cd ../.. && npm run dev`
+
+### Testes a fazer após setup
+- [ ] **Testar Figura 01 no upload**: fazer upload do PDF REP 32214_2026 → verificar que
+  Figura 01 aparece na lista de imagens → Confirmar → gerar DOCX
 - [ ] **Verificar DOCX gerado**: foto do vestígio entre "Material Recebido" e "Objetivo",
   mesma formatação que Figura 02 e Figura 03
-- [ ] **Cabeçalho full-width**: verificar visualmente que cabeçalho ocupa 210mm após restart
-- [ ] **Limpar drafts duplicados**: deletar os 2 drafts REP 32214_2026 sem utilidade após
-  ter um template confirmado com as 3 figuras
+- [ ] **Cabeçalho full-width**: verificar visualmente que cabeçalho ocupa 210mm
+- [ ] **Testar preset quick-select**: preencher campo Circunscrição → clicar ★ para salvar
+  → clicar ▾ → confirmar que o valor aparece na lista → clicar para reutilizar
+
+### Melhorias futuras (não urgentes)
+- [ ] Limpar drafts duplicados no DB após ter template confirmado com as 3 figuras
+- [ ] Identificação de seção no AiImprove (mostra UUID truncado; ideal: label da seção)
+- [ ] DOCX customizado do usuário como esqueleto alternativo
+- [ ] Histórico de batches por template
+- [ ] Gestão de chaves API via Electron safeStorage
 
 ---
 
