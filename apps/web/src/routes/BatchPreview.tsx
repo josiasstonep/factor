@@ -199,19 +199,20 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
                     const previewUrl = row.imagePreviewUrls[p.id] ?? null;
                     const refUrl = p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null;
                     const src = previewUrl ?? refUrl;
+                    const caption = resolveVars(p.label, template, row.variableValues);
                     return (
                       <div key={p.id} className="preview-image-block">
                         {src ? (
                           <>
-                            <img src={src} alt={p.label} className="preview-image-img" />
+                            <img src={src} alt={caption} className="preview-image-img" />
                             {!previewUrl && refUrl && (
                               <div className="preview-image-ref-note">foto do modelo (substituir no formulário)</div>
                             )}
                           </>
                         ) : (
-                          <div className="preview-image-empty">[ {p.label} — sem foto ]</div>
+                          <div className="preview-image-empty">[ {caption} — sem foto ]</div>
                         )}
-                        <div className="preview-image-caption">{p.label}</div>
+                        <div className="preview-image-caption">{caption}</div>
                       </div>
                     );
                   })}
@@ -228,14 +229,15 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
               const previewUrl = row.imagePreviewUrls[p.id] ?? null;
               const refUrl = p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null;
               const src = previewUrl ?? refUrl;
+              const caption = resolveVars(p.label, template, row.variableValues);
               return (
                 <div key={p.id} className="preview-image-block">
                   {src ? (
-                    <img src={src} alt={p.label} className="preview-image-img" />
+                    <img src={src} alt={caption} className="preview-image-img" />
                   ) : (
-                    <div className="preview-image-empty">[ {p.label} — sem foto ]</div>
+                    <div className="preview-image-empty">[ {caption} — sem foto ]</div>
                   )}
-                  <div className="preview-image-caption">{p.label}</div>
+                  <div className="preview-image-caption">{caption}</div>
                 </div>
               );
             })}
