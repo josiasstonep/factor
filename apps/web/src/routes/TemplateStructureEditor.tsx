@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { updateTemplate, uploadImage } from "../api/client";
+import { mergeStandardVars } from "../utils/standardVars";
 
 const CANONICAL_LABELS: Record<string, string> = {
   rep: "REP nº", vestigio: "Vestígio", sei: "SEI nº",
@@ -61,7 +62,7 @@ function templateFileToUrl(filePath: string): string {
 export default function TemplateStructureEditor({ template, onConfirmed }: Props) {
   const [name, setName] = useState(template.name);
   const [sections, setSections] = useState<TemplateSection[]>(template.sections);
-  const [variables, setVariables] = useState<TemplateVariable[]>(template.variables);
+  const [variables, setVariables] = useState<TemplateVariable[]>(() => mergeStandardVars(template.variables));
   const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>({});
   const [imagePlaceholders, setImagePlaceholders] = useState<TemplateImagePlaceholder[]>(
     template.image_placeholders,

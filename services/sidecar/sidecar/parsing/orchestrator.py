@@ -55,6 +55,29 @@ def _inject_placeholders(
         section.default_text = text
 
 
+_STANDARD_FORENSIC_VARS: list[tuple[str, str]] = [
+    ("modelo",      "Modelo"),
+    ("imei1",       "IMEI 1"),
+    ("imei2",       "IMEI 2"),
+    ("nome_perito", "Nome do Perito"),
+]
+
+
+def _merge_standard_vars(variables: list[TemplateVariable]) -> list[TemplateVariable]:
+    """Append standard forensic variables that are not already detected."""
+    existing_keys = {v.key for v in variables}
+    for key, label in _STANDARD_FORENSIC_VARS:
+        if key not in existing_keys:
+            variables.append(TemplateVariable(
+                id=str(__import__("uuid").uuid4()),
+                key=key,
+                label=label,
+                source_label_detected=None,
+                source_value_detected=None,
+            ))
+    return variables
+
+
 def parse_pdf(pdf_path: Path) -> ParsedStructure:
     extraction = pdf_extract.extract(pdf_path)
 
@@ -68,6 +91,7 @@ def parse_pdf(pdf_path: Path) -> ParsedStructure:
 
     sections = detect_sections(clean_lines)
     variables = detect_variables(clean_lines)
+    variables = _merge_standard_vars(variables)
     image_placeholders = detect_images(extraction.images, clean_lines)
 
     _inject_placeholders(sections, variables)

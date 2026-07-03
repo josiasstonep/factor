@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { uploadImage } from "../api/client";
+import { mergeStandardVars } from "../utils/standardVars";
+import { deletePreset, getPresets, savePreset } from "../utils/varPresets";
 import type { Template, TemplateVariable } from "../api/types";
 
 const SIDECAR_PORT = 8731;
@@ -12,6 +14,7 @@ const VARIABLE_HINTS: Record<string, string> = {
   rep: "ex: 28203/2026",
   processo: "ex: 0000152-35.2026.8.17.2250",
   marca: "ex: XIAOMI, SAMSUNG, APPLE",
+  circunscricao: "ex: 170ª CIRCUNSCRIÇÃO - ITAPETIM - PCPE",
 };
 
 interface Props {
@@ -88,18 +91,19 @@ function resolveVars(text: string, template: Template, variableValues: Record<st
 }
 
 export default function BatchForm({ template, initialRows, onPreview }: Props) {
-  const [rows, setRows] = useState<RowState[]>(initialRows ?? [createEmptyRow(0, template)]);
+  const effectiveTemplate = { ...template, variables: mergeStandardVars(template.variables) };
+  const [rows, setRows] = useState<RowState[]>(initialRows ?? [createEmptyRow(0, effectiveTemplate)]);
   const [error, setError] = useState<string | null>(null);
 
-  const sortedSections = template.sections.slice().sort((a, b) => a.order - b.order);
+  const sortedSections = effectiveTemplate.sections.slice().sort((a, b) => a.order - b.order);
 
-  const imagesBySectionId = template.image_placeholders.reduce<Record<string, typeof template.image_placeholders>>((acc, p) => {
+  const imagesBySectionId = effectiveTemplate.image_placeholders.reduce<Record<string, typeof template.image_placeholders>>((acc, p) => {
     const key = p.section_id ?? "__orphan__";
     acc[key] = [...(acc[key] ?? []), p];
     return acc;
   }, {});
   const orphanImages = imagesBySectionId["__orphan__"] ?? [];
-  const allImages = template.image_placeholders.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const allImages = effectiveTemplate.image_placeholders.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   function updateRow(rowId: string, patch: Partial<RowState>) {
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
@@ -153,7 +157,7 @@ export default function BatchForm({ template, initialRows, onPreview }: Props) {
             row={row}
             index={idx}
             total={rows.length}
-            template={template}
+            template={effectiveTemplate}
             sortedSections={sortedSections}
             imagesBySectionId={imagesBySectionId}
             orphanImages={orphanImages}
@@ -185,6 +189,89 @@ export default function BatchForm({ template, initialRows, onPreview }: Props) {
           {rows.length === 1 ? "Pré-visualizar laudo →" : `Pré-visualizar ${rows.length} laudos →`}
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ── Variable field with preset quick-select ────────────────────────────── */
+
+function VarField({
+  variable,
+  value,
+  onChange,
+}: {
+  variable: TemplateVariable;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [presets, setPresets] = useState<string[]>(() => getPresets(variable.key));
+
+  function handleSave() {
+    if (!value.trim()) return;
+    savePreset(variable.key, value);
+    setPresets(getPresets(variable.key));
+  }
+
+  function handleSelect(preset: string) {
+    onChange(preset);
+    setOpen(false);
+  }
+
+  function handleDelete(e: React.MouseEvent, preset: string) {
+    e.stopPropagation();
+    deletePreset(variable.key, preset);
+    setPresets(getPresets(variable.key));
+  }
+
+  return (
+    <div className="batch-var-field" style={{ position: "relative" }}>
+      <label className="batch-var-label">{variable.label}</label>
+      <div className="var-input-row">
+        <input
+          type="text"
+          className="batch-var-input"
+          value={value}
+          placeholder={VARIABLE_HINTS[variable.key] ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          className="var-preset-btn"
+          title="Salvar como atalho"
+          onClick={handleSave}
+          disabled={!value.trim()}
+        >
+          ★
+        </button>
+        {presets.length > 0 && (
+          <button
+            type="button"
+            className="var-preset-btn var-preset-open-btn"
+            title="Ver atalhos salvos"
+            onClick={() => setOpen((o) => !o)}
+          >
+            ▾
+          </button>
+        )}
+      </div>
+      {open && presets.length > 0 && (
+        <div className="var-preset-dropdown">
+          {presets.map((p) => (
+            <div key={p} className="var-preset-item" onClick={() => handleSelect(p)}>
+              <span className="var-preset-text">{p}</span>
+              <button
+                type="button"
+                className="var-preset-delete"
+                onClick={(e) => handleDelete(e, p)}
+                title="Remover atalho"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -255,18 +342,12 @@ function CaseCard({
       {template.variables.length > 0 && (
         <div className="batch-vars-grid">
           {template.variables.map((v) => (
-            <div key={v.id} className="batch-var-field">
-              <label className="batch-var-label">{v.label}</label>
-              <input
-                type="text"
-                className="batch-var-input"
-                value={row.variableValues[v.id] ?? ""}
-                placeholder={VARIABLE_HINTS[v.key] ?? ""}
-                onChange={(e) =>
-                  onUpdate({ variableValues: { ...row.variableValues, [v.id]: e.target.value } })
-                }
-              />
-            </div>
+            <VarField
+              key={v.id}
+              variable={v}
+              value={row.variableValues[v.id] ?? ""}
+              onChange={(val) => onUpdate({ variableValues: { ...row.variableValues, [v.id]: val } })}
+            />
           ))}
         </div>
       )}

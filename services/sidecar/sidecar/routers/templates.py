@@ -13,7 +13,7 @@ from sidecar.generation.docx_template_builder import build_skeleton
 from sidecar.models.template import Template, TemplateUpdate, TemplateVariable
 from sidecar.parsing.header_footer_extract import extract_header_footer
 from sidecar.parsing.image_detect import detect_figures_from_text
-from sidecar.parsing.orchestrator import PdfHasNoTextLayerError, parse_pdf
+from sidecar.parsing.orchestrator import PdfHasNoTextLayerError, _merge_standard_vars, parse_pdf
 
 _REP_FROM_FILENAME = re.compile(r'\bREP[\s_-]?(\d{4,6})[_/\\-](\d{2,4})\b', re.IGNORECASE)
 
@@ -106,6 +106,7 @@ async def update_template(template_id: str, update: TemplateUpdate):
     if update.confirm:
         if not existing.sections:
             raise HTTPException(400, "Confirme ao menos uma seção antes de finalizar o template.")
+        existing.variables = _merge_standard_vars(existing.variables)
         skeleton_path = TEMPLATES_DIR / f"{existing.id}_skeleton.docx"
         build_skeleton(existing, skeleton_path)
         existing.docx_skeleton_path = str(skeleton_path)
@@ -113,6 +114,22 @@ async def update_template(template_id: str, update: TemplateUpdate):
 
     repo.save_template(existing)
     return existing
+
+
+@router.post("/ensure-standard-vars", response_model=list[str])
+async def ensure_standard_vars():
+    """Apply standard forensic variables to every confirmed template that is missing them."""
+    from sidecar import repo as _repo
+    fixed = []
+    for t in _repo.list_templates():
+        if t.status != "confirmed":
+            continue
+        before = {v.key for v in t.variables}
+        t.variables = _merge_standard_vars(t.variables)
+        if {v.key for v in t.variables} != before:
+            _repo.save_template(t)
+            fixed.append(t.id)
+    return fixed
 
 
 class RenamePayload(BaseModel):

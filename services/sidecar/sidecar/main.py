@@ -6,7 +6,9 @@ from fastapi.staticfiles import StaticFiles
 
 from sidecar.config import UPLOADS_DIR, TEMPLATES_DIR
 from sidecar.db import init_db
+from sidecar import repo
 from sidecar.routers import ai, reports, templates, uploads
+from sidecar.parsing.orchestrator import _merge_standard_vars
 
 app = FastAPI(title="Factor Sidecar", version="0.1.0")
 
@@ -18,6 +20,14 @@ app.add_middleware(
 )
 
 init_db()
+
+# On startup: ensure all confirmed templates have the standard forensic variables.
+for _t in repo.list_templates():
+    if _t.status == "confirmed":
+        before = {v.key for v in _t.variables}
+        _t.variables = _merge_standard_vars(_t.variables)
+        if {v.key for v in _t.variables} != before:
+            repo.save_template(_t)
 
 app.include_router(templates.router)
 app.include_router(uploads.router)

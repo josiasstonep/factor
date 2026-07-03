@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { generateBatch } from "../api/client";
+import { mergeStandardVars } from "../utils/standardVars";
 import type { GenerateBatchResponse, ReportInputCreate, Template } from "../api/types";
 import type { RowState } from "./BatchForm";
 
@@ -38,13 +39,14 @@ function resolveVars(text: string, template: Template, variableValues: Record<st
 }
 
 export default function BatchPreview({ template, rows, onBack, onGenerated }: Props) {
+  const effectiveTemplate = { ...template, variables: mergeStandardVars(template.variables) };
   const [activeTab, setActiveTab] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sortedSections = template.sections.slice().sort((a, b) => a.order - b.order);
+  const sortedSections = effectiveTemplate.sections.slice().sort((a, b) => a.order - b.order);
 
-  const imagesBySectionId = template.image_placeholders.reduce<
+  const imagesBySectionId = effectiveTemplate.image_placeholders.reduce<
     Record<string, typeof template.image_placeholders>
   >((acc, p) => {
     const key = p.section_id ?? "__orphan__";
@@ -53,7 +55,7 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
   }, {});
   const orphanImages = imagesBySectionId["__orphan__"] ?? [];
 
-  const allImages = template.image_placeholders.slice().sort(
+  const allImages = effectiveTemplate.image_placeholders.slice().sort(
     (a, b) => (a.order ?? 0) - (b.order ?? 0),
   );
 
@@ -64,15 +66,15 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
       const payload: ReportInputCreate[] = rows.map((row) => ({
         template_id: template.id,
         row_label: row.rowLabel,
-        variables: template.variables.map((v) => ({
+        variables: effectiveTemplate.variables.map((v) => ({
           variable_id: v.id,
           value: row.variableValues[v.id] ?? "",
         })),
-        sections: template.sections.map((s) => ({
+        sections: effectiveTemplate.sections.map((s) => ({
           section_id: s.id,
           text: row.sectionTexts[s.id] ?? "",
         })),
-        images: template.image_placeholders
+        images: effectiveTemplate.image_placeholders
           .filter((p) => row.imagePaths[p.id])
           .map((p) => ({ placeholder_id: p.id, file_path: row.imagePaths[p.id], order: 0 })),
       }));
@@ -99,7 +101,7 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
       {/* ── Case tabs ── */}
       <div className="preview-tabs">
         {rows.map((r, i) => {
-          const filled = template.variables.every((v) => (r.variableValues[v.id] ?? "").trim() !== "");
+          const filled = effectiveTemplate.variables.every((v) => (r.variableValues[v.id] ?? "").trim() !== "");
           const imgCount = allImages.filter((p) => r.imagePaths[p.id]).length;
           return (
             <button
@@ -144,10 +146,10 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
         )}
 
         {/* Variables table */}
-        {template.variables.length > 0 && (
+        {effectiveTemplate.variables.length > 0 && (
           <table className="doc-vars-table" style={{ marginBottom: 24 }}>
             <tbody>
-              {template.variables.map((v) => {
+              {effectiveTemplate.variables.map((v) => {
                 const value = (row.variableValues[v.id] ?? "").trim();
                 return (
                   <tr key={v.id}>
@@ -165,7 +167,7 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
         {/* Sections */}
         {sortedSections.map((s, idx) => {
           const rawText = row.sectionTexts[s.id] ?? "";
-          const rendered = resolveVars(rawText, template, row.variableValues);
+          const rendered = resolveVars(rawText, effectiveTemplate, row.variableValues);
           const sectionImages = imagesBySectionId[s.id] ?? [];
 
           return (
@@ -199,7 +201,7 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
                     const previewUrl = row.imagePreviewUrls[p.id] ?? null;
                     const refUrl = p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null;
                     const src = previewUrl ?? refUrl;
-                    const caption = resolveVars(p.label, template, row.variableValues);
+                    const caption = resolveVars(p.label, effectiveTemplate, row.variableValues);
                     return (
                       <div key={p.id} className="preview-image-block">
                         {src ? (
@@ -229,7 +231,7 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
               const previewUrl = row.imagePreviewUrls[p.id] ?? null;
               const refUrl = p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null;
               const src = previewUrl ?? refUrl;
-              const caption = resolveVars(p.label, template, row.variableValues);
+              const caption = resolveVars(p.label, effectiveTemplate, row.variableValues);
               return (
                 <div key={p.id} className="preview-image-block">
                   {src ? (
