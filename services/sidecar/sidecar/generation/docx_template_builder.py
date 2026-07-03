@@ -108,19 +108,21 @@ def _body_para(doc: Document, text: str) -> None:
 
 
 def _add_image_placeholder(doc: Document, placeholder: TemplateImagePlaceholder) -> None:
+    # Image first, caption below (standard figure format)
+    img_para = doc.add_paragraph("{{ " + image_key(placeholder) + " }}")
+    img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    img_para.paragraph_format.first_line_indent = Pt(0)
+    img_para.paragraph_format.space_before = Pt(12)
+    img_para.paragraph_format.space_after = Pt(4)
     caption = doc.add_paragraph()
-    caption.paragraph_format.space_before = Pt(12)
-    caption.paragraph_format.space_after = Pt(4)
+    caption.paragraph_format.space_before = Pt(0)
+    caption.paragraph_format.space_after = Pt(12)
     caption.paragraph_format.first_line_indent = Pt(0)
     caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = caption.add_run("{{ " + caption_key(placeholder) + " }}")
     r.bold = True
     r.font.name = "Arial"
     r.font.size = Pt(11)
-    img_para = doc.add_paragraph("{{ " + image_key(placeholder) + " }}")
-    img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    img_para.paragraph_format.first_line_indent = Pt(0)
-    img_para.paragraph_format.space_after = Pt(12)
 
 
 def build_skeleton(template: Template, output_path: Path) -> Path:

@@ -150,15 +150,18 @@ _LIST_ITEM_RE = re.compile(r'^[·•–—•·\-]\s|^Vest[ií]gio\s+\S+', re.UN
 
 
 def _postprocess_captions(docx_path: Path, template, var_context: dict[str, str]) -> None:
-    """Substitute variable values inside figure captions.
+    """Fix figure captions: substitute variable values AND ensure caption is BELOW the image.
 
-    Works for both skeleton types:
-    - New skeletons: caption is already a resolved Jinja2 variable — no-op.
-    - Old skeletons: caption contains the literal source value from the original PDF;
-      we inject {{key}} then resolve with the current values.
+    Handles two skeleton generations:
+    - New skeleton (image first, then caption): text substitution only.
+    - Old skeleton (caption first, then image): swaps order + substitutes text.
     """
+    from docx.oxml.ns import qn
+
     doc = Document(str(docx_path))
     changed = False
+
+    # Pass 1: text substitution in caption paragraphs
     for p in doc.paragraphs:
         text = p.text.strip()
         if not _CAPTION_RE.match(text):
@@ -170,6 +173,32 @@ def _postprocess_captions(docx_path: Path, template, var_context: dict[str, str]
             for run in p.runs[1:]:
                 run.text = ""
             changed = True
+
+    # Pass 2: fix order — caption before image → move caption after image
+    body_el = doc.element.body
+    children = list(body_el)
+    # Collect (caption_el, image_el) pairs where caption comes immediately before an image paragraph
+    pairs = []
+    for i in range(len(children) - 1):
+        el = children[i]
+        if el.tag != qn("w:p"):
+            continue
+        text = "".join(t.text or "" for t in el.iter(qn("w:t"))).strip()
+        if not _CAPTION_RE.match(text):
+            continue
+        next_el = children[i + 1]
+        if next_el.tag != qn("w:p"):
+            continue
+        if next_el.find(f".//{qn('w:drawing')}") is not None:
+            pairs.append((el, next_el))
+
+    for cap_el, img_el in pairs:
+        body_el.remove(cap_el)
+        new_children = list(body_el)
+        img_idx = new_children.index(img_el)
+        body_el.insert(img_idx + 1, cap_el)
+        changed = True
+
     if changed:
         doc.save(str(docx_path))
 
