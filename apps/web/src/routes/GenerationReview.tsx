@@ -15,7 +15,7 @@ export default function GenerationReview({ result, hasAiImprovable, onImproveWit
 
   return (
     <div className="card">
-      <h2>4. Laudos gerados</h2>
+      <h2>5. Laudos gerados</h2>
 
       {hasErrors && (
         <div className="error-banner">

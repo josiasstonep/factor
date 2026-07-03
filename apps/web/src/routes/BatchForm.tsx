@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { uploadImage } from "../api/client";
 import { mergeStandardVars } from "../utils/standardVars";
 import { deletePreset, getPresets, savePreset } from "../utils/varPresets";
@@ -206,6 +206,18 @@ function VarField({
 }) {
   const [open, setOpen] = useState(false);
   const [presets, setPresets] = useState<string[]>(() => getPresets(variable.key));
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
 
   function handleSave() {
     if (!value.trim()) return;
@@ -221,11 +233,13 @@ function VarField({
   function handleDelete(e: React.MouseEvent, preset: string) {
     e.stopPropagation();
     deletePreset(variable.key, preset);
-    setPresets(getPresets(variable.key));
+    const updated = getPresets(variable.key);
+    setPresets(updated);
+    if (updated.length === 0) setOpen(false);
   }
 
   return (
-    <div className="batch-var-field" style={{ position: "relative" }}>
+    <div ref={containerRef} className="batch-var-field" style={{ position: "relative" }}>
       <label className="batch-var-label">{variable.label}</label>
       <div className="var-input-row">
         <input

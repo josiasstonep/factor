@@ -1,11 +1,5 @@
 import { useRef, useState } from "react";
 import { updateTemplate, uploadImage } from "../api/client";
-import { mergeStandardVars } from "../utils/standardVars";
-
-const CANONICAL_LABELS: Record<string, string> = {
-  rep: "REP nº", vestigio: "Vestígio", sei: "SEI nº",
-  oficio: "Ofício", marca: "Marca", lacre: "Lacre nº",
-};
 import type {
   SectionType,
   Template,
@@ -13,6 +7,12 @@ import type {
   TemplateSection,
   TemplateVariable,
 } from "../api/types";
+import { mergeStandardVars } from "../utils/standardVars";
+
+const CANONICAL_LABELS: Record<string, string> = {
+  rep: "REP nº", vestigio: "Vestígio", sei: "SEI nº",
+  oficio: "Ofício", marca: "Marca", lacre: "Lacre nº",
+};
 
 interface Props {
   template: Template;

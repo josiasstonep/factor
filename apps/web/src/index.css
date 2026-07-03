@@ -714,7 +714,6 @@ tr:last-child td { border-bottom: none; }
   background: #fff;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
-  overflow: hidden;
 }
 
 .batch-case-header {
@@ -724,6 +723,7 @@ tr:last-child td { border-bottom: none; }
   padding: 14px 20px 12px;
   background: var(--c-primary);
   color: #fff;
+  border-radius: 10px 10px 0 0;
 }
 
 .batch-case-num {

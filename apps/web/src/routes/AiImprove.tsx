@@ -115,7 +115,7 @@ export default function AiImprove({ result, aiImprovableSectionIds, onDone }: Pr
 
   return (
     <div className="card">
-      <h2>5. Melhorar com IA</h2>
+      <h2>6. Melhorar com IA</h2>
       <p className="hint">
         Selecione um provedor de IA para melhorar as seções dos laudos. O texto original é
         preservado — você revisa e aceita cada sugestão.
