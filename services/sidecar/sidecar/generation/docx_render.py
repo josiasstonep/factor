@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from docx import Document
@@ -76,7 +77,7 @@ def build_render_context(
         if section_overrides and section.id in section_overrides:
             text = section_overrides[section.id]
         resolved = _resolve_inline_vars(_sanitize_text(text), var_context)
-        # \a is docxtpl's soft line-break within a paragraph
+        # \a = docxtpl paragraph break; \n in stored text = paragraph separator
         context[section_key(section)] = resolved.replace("\n", "\a")
 
     return context
@@ -123,12 +124,18 @@ def _is_quote_end(text: str) -> bool:
     return stripped.endswith(_ELLIPSIS_BRACKET) or _ELLIPSIS_BRACKET in stripped[-8:]
 
 
+_HEADING_RE = re.compile(r'^\d+\.\s')
+_CAPTION_RE = re.compile(r'^Figura\s+\d+', re.IGNORECASE)
+_LIST_ITEM_RE = re.compile(r'^[·•–—•·\-]\s|^Vest[ií]gio\s+\S+', re.UNICODE)
+
+
 def _postprocess_paragraphs(docx_path: Path) -> None:
     """Apply formatting that docxtpl cannot control per-paragraph.
 
-    Block quotes (paragraphs starting with an opening curly quote and ending
-    with a closing quote or Brazilian "[...]" truncation marker) get a left
-    indent so they visually match the indented quote blocks in the source PDF.
+    - All body paragraphs: JUSTIFY + 1.5 line spacing (docxtpl paragraph cloning
+      sometimes drops the jc/spacing XML from the skeleton pPr).
+    - Block quotes: left_indent=5cm, italic, no first-line indent.
+    - List items (bullet · or "Vestígio N"): no first-line indent, left flush.
     """
     doc = Document(str(docx_path))
     in_quote = False
@@ -140,16 +147,32 @@ def _postprocess_paragraphs(docx_path: Path) -> None:
             in_quote = True
 
         if in_quote:
-            p.paragraph_format.left_indent = Cm(5.0)   # ~5cm from margin per spec
+            p.paragraph_format.left_indent = Cm(5.0)
             p.paragraph_format.right_indent = Pt(0)
             p.paragraph_format.first_line_indent = Pt(0)
             p.paragraph_format.space_before = Pt(0)
             p.paragraph_format.space_after = Pt(0)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             for run in p.runs:
-                run.italic = True   # quote blocks use italic per spec recommendation
+                run.italic = True
 
             if _is_quote_end(text):
                 in_quote = False
+
+        elif _HEADING_RE.match(text) or _CAPTION_RE.match(text) or not text:
+            # section headings and blank paragraphs: leave as-is
+            pass
+
+        else:
+            # Body paragraph: enforce justify + 1.5 spacing
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            pf = p.paragraph_format
+            pf.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+            pf.line_spacing = 1.5
+            pf.space_before = Pt(0)
+            pf.space_after = Pt(0)
+            # List items (bullet or "Vestígio N:") should NOT carry first-line indent
+            if _LIST_ITEM_RE.match(text) or text.startswith(chr(0x00B7)):
+                pf.first_line_indent = Pt(0)
 
     doc.save(str(docx_path))

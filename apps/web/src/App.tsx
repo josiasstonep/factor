@@ -1,26 +1,29 @@
 import { useState } from "react";
 import type { GenerateBatchResponse, Template } from "./api/types";
 import AiImprove from "./routes/AiImprove";
-import BatchForm from "./routes/BatchForm";
+import BatchForm, { type RowState } from "./routes/BatchForm";
+import BatchPreview from "./routes/BatchPreview";
 import GenerationReview from "./routes/GenerationReview";
 import TemplateList from "./routes/TemplateList";
 import TemplateStructureEditor from "./routes/TemplateStructureEditor";
 import TemplateUpload from "./routes/TemplateUpload";
 
 // "home" is the template-selection screen (not part of the numbered wizard steps)
-type Step = "home" | "upload" | "structure" | "form" | "review" | "ai";
+type Step = "home" | "upload" | "structure" | "form" | "preview" | "review" | "ai";
 
 const WIZARD_STEPS: { key: Step; label: string }[] = [
   { key: "upload", label: "1. Upload" },
   { key: "structure", label: "2. Estrutura" },
   { key: "form", label: "3. Dados" },
-  { key: "review", label: "4. Resultado" },
-  { key: "ai", label: "5. IA" },
+  { key: "preview", label: "4. Preview" },
+  { key: "review", label: "5. Resultado" },
+  { key: "ai", label: "6. IA" },
 ];
 
 export default function App() {
   const [step, setStep] = useState<Step>("home");
   const [template, setTemplate] = useState<Template | null>(null);
+  const [batchRows, setBatchRows] = useState<RowState[] | null>(null);
   const [result, setResult] = useState<GenerateBatchResponse | null>(null);
 
   function stepStatus(key: Step): "active" | "done" | "" {
@@ -34,8 +37,8 @@ export default function App() {
 
   function navigateTo(key: Step) {
     if (key === "upload") {
-      // "1. Upload" goes back to template selection (home)
       setTemplate(null);
+      setBatchRows(null);
       setResult(null);
       setStep("home");
     } else {
@@ -56,6 +59,7 @@ export default function App() {
       <h1 style={{ cursor: showWizard ? "pointer" : "default" }} onClick={() => {
         if (showWizard) {
           setTemplate(null);
+          setBatchRows(null);
           setResult(null);
           setStep("home");
         }
@@ -86,6 +90,7 @@ export default function App() {
         <TemplateList
           onSelect={(t) => {
             setTemplate(t);
+            setBatchRows(null);
             setResult(null);
             setStep("form");
           }}
@@ -118,6 +123,19 @@ export default function App() {
       {step === "form" && template && (
         <BatchForm
           template={template}
+          initialRows={batchRows ?? undefined}
+          onPreview={(rows) => {
+            setBatchRows(rows);
+            setStep("preview");
+          }}
+        />
+      )}
+
+      {step === "preview" && template && batchRows && (
+        <BatchPreview
+          template={template}
+          rows={batchRows}
+          onBack={() => setStep("form")}
           onGenerated={(r) => {
             setResult(r);
             setStep("review");

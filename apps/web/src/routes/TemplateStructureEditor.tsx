@@ -1,5 +1,10 @@
 import { useRef, useState } from "react";
 import { updateTemplate, uploadImage } from "../api/client";
+
+const CANONICAL_LABELS: Record<string, string> = {
+  rep: "REP nº", vestigio: "Vestígio", sei: "SEI nº",
+  oficio: "Ofício", marca: "Marca", lacre: "Lacre nº",
+};
 import type {
   SectionType,
   Template,
@@ -133,10 +138,14 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
     setSaving(true);
     setError(null);
     try {
-      const finalVariables = variables.map((v) => ({
-        ...v,
-        label: labelOverrides[v.id]?.trim() || v.label,
-      }));
+      const finalVariables = variables.map((v) => {
+        const raw = (labelOverrides[v.id] ?? v.label).trim();
+        // Auto-fix corrupted "111..." labels (all-1-char = parsing artifact)
+        const label = /^1+$/.test(raw)
+          ? (CANONICAL_LABELS[v.key] ?? v.key)
+          : (raw || CANONICAL_LABELS[v.key] || v.key);
+        return { ...v, label };
+      });
       const updated = await updateTemplate(template.id, {
         name,
         sections,
@@ -312,8 +321,8 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
                 <input
                   type="text"
                   className="tpl-label-input"
-                  placeholder={v.label}
-                  value={labelOverrides[v.id] ?? ""}
+                  placeholder="Rótulo do campo"
+                  value={labelOverrides[v.id] ?? v.label}
                   onChange={(e) =>
                     setLabelOverrides((prev) => ({ ...prev, [v.id]: e.target.value }))
                   }

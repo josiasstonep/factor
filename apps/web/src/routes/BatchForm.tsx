@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { generateBatch, uploadImage } from "../api/client";
-import type { GenerateBatchResponse, ReportInputCreate, Template, TemplateVariable } from "../api/types";
+import { uploadImage } from "../api/client";
+import type { Template, TemplateVariable } from "../api/types";
 
 const SIDECAR_PORT = 8731;
 
@@ -16,31 +16,26 @@ const VARIABLE_HINTS: Record<string, string> = {
 
 interface Props {
   template: Template;
-  onGenerated: (result: GenerateBatchResponse) => void;
+  initialRows?: RowState[];
+  onPreview: (rows: RowState[]) => void;
 }
 
-interface RowState {
+export interface RowState {
   rowId: string;
   rowLabel: string;
-  variableValues: Record<string, string>;   // keyed by variable.id
-  sectionTexts: Record<string, string>;     // keyed by section.id
+  variableValues: Record<string, string>;
+  sectionTexts: Record<string, string>;
   imagePaths: Record<string, string>;
   imagePreviewUrls: Record<string, string>;
   uploadingId: string | null;
+  sectionsExpanded: boolean;
 }
 
-/**
- * Replace detected source values in section text with {{key}} placeholders.
- * Mirrors the Python _inject_placeholders logic so old (pre-injection) templates
- * also get proper substitution without needing a re-parse.
- */
 function injectPlaceholders(text: string, variables: TemplateVariable[]): string {
   let result = text;
   for (const v of variables) {
     const val = v.source_value_detected ?? "";
     if (val.length < 6) continue;
-    // Build a regex that matches the value with any whitespace between tokens
-    // (PDFs often insert newlines mid-value when extracted)
     const escaped = val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
     result = result.replace(new RegExp(escaped, "g"), `{{${v.key}}}`);
   }
@@ -48,24 +43,20 @@ function injectPlaceholders(text: string, variables: TemplateVariable[]): string
 }
 
 function createEmptyRow(index: number, template: Template): RowState {
-  const variableValues: Record<string, string> = {};
-
-  // Apply placeholder injection so old templates (confirmed before server-side
-  // injection was added) also get {{key}} substitution in section text
   const sectionTexts: Record<string, string> = {};
   for (const s of template.sections) {
     const raw = s.default_text ?? "";
     sectionTexts[s.id] = injectPlaceholders(raw, template.variables);
   }
-
   return {
     rowId: crypto.randomUUID(),
     rowLabel: `Caso ${index + 1}`,
-    variableValues,
+    variableValues: {},
     sectionTexts,
     imagePaths: {},
     imagePreviewUrls: {},
     uploadingId: null,
+    sectionsExpanded: false,
   };
 }
 
@@ -79,7 +70,6 @@ function filePathToPreviewUrl(filePath: string): string {
 }
 
 function templateFileToUrl(filePath: string): string {
-  // Converts an absolute path inside .data/templates/ to a /templates-static/ URL
   const normalized = filePath.replace(/\\/g, "/");
   const parts = normalized.split("/templates/");
   if (parts.length >= 2) {
@@ -88,14 +78,7 @@ function templateFileToUrl(filePath: string): string {
   return "";
 }
 
-/**
- * Resolve section text for preview:
- * 1. Run placeholder injection so old templates (literal values, no {{key}}) are also handled
- * 2. Substitute each {{key}} with the user's current value, falling back to the
- *    source_value_detected (template example) and then to [label]
- */
 function resolveVars(text: string, template: Template, variableValues: Record<string, string>): string {
-  // Inject first — no-op when {{key}} placeholders are already present
   let result = injectPlaceholders(text, template.variables);
   for (const v of template.variables) {
     const value = variableValues[v.id] ?? "";
@@ -104,38 +87,31 @@ function resolveVars(text: string, template: Template, variableValues: Record<st
   return result;
 }
 
-export default function BatchForm({ template, onGenerated }: Props) {
-  const [rows, setRows] = useState<RowState[]>([createEmptyRow(0, template)]);
-  const [activeTab, setActiveTab] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
+export default function BatchForm({ template, initialRows, onPreview }: Props) {
+  const [rows, setRows] = useState<RowState[]>(initialRows ?? [createEmptyRow(0, template)]);
   const [error, setError] = useState<string | null>(null);
-  // sections being edited (show textarea instead of preview)
-  const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
 
   const sortedSections = template.sections.slice().sort((a, b) => a.order - b.order);
 
-  // Group image placeholders by section_id for inline rendering
   const imagesBySectionId = template.image_placeholders.reduce<Record<string, typeof template.image_placeholders>>((acc, p) => {
     const key = p.section_id ?? "__orphan__";
     acc[key] = [...(acc[key] ?? []), p];
     return acc;
   }, {});
   const orphanImages = imagesBySectionId["__orphan__"] ?? [];
+  const allImages = template.image_placeholders.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   function updateRow(rowId: string, patch: Partial<RowState>) {
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
   }
 
   function addRow() {
-    const next = rows.length;
-    setRows((prev) => [...prev, createEmptyRow(next, template)]);
-    setActiveTab(next);
+    setRows((prev) => [...prev, createEmptyRow(prev.length, template)]);
   }
 
-  function removeRow(index: number) {
+  function removeRow(rowId: string) {
     if (rows.length === 1) return;
-    setRows((prev) => prev.filter((_, i) => i !== index));
-    setActiveTab(Math.min(activeTab, rows.length - 2));
+    setRows((prev) => prev.filter((r) => r.rowId !== rowId));
   }
 
   async function handleImageChange(rowId: string, placeholderId: string, file: File) {
@@ -162,255 +138,284 @@ export default function BatchForm({ template, onGenerated }: Props) {
     }
   }
 
-  async function handleSubmit() {
-    if (rows.length === 0) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const payload: ReportInputCreate[] = rows.map((row) => ({
-        template_id: template.id,
-        row_label: row.rowLabel,
-        variables: template.variables.map((v) => ({
-          variable_id: v.id,
-          value: row.variableValues[v.id] ?? "",
-        })),
-        sections: template.sections.map((s) => ({
-          section_id: s.id,
-          text: row.sectionTexts[s.id] ?? "",
-        })),
-        images: template.image_placeholders
-          .filter((p) => row.imagePaths[p.id])
-          .map((p) => ({ placeholder_id: p.id, file_path: row.imagePaths[p.id], order: 0 })),
-      }));
-
-      const result = await generateBatch(
-        template.id,
-        `Batch ${new Date().toLocaleString("pt-BR")}`,
-        payload,
-      );
-      onGenerated(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao gerar laudos.");
-    } finally {
-      setSubmitting(false);
-    }
+  function handlePreview() {
+    onPreview(rows);
   }
-
-  const row = rows[activeTab] ?? rows[0];
 
   return (
     <div>
       {error && <div className="error-banner">{error}</div>}
 
-      {/* ── Case tabs ── */}
-      <div className="case-tabs">
-        {rows.map((r, i) => (
-          <button
-            key={r.rowId}
-            type="button"
-            className={`case-tab ${i === activeTab ? "active" : ""}`}
-            onClick={() => setActiveTab(i)}
-          >
-            {r.rowLabel || `Caso ${i + 1}`}
-            {rows.length > 1 && (
-              <span
-                className="case-tab-remove"
-                role="button"
-                title="Remover caso"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeRow(i);
-                }}
-              >
-                ×
-              </span>
-            )}
-          </button>
-        ))}
-        <button type="button" className="case-tab-add" onClick={addRow}>
-          + Caso
-        </button>
-      </div>
-
-      {/* ── Paper canvas ── */}
-      <div className="doc-paper">
-        {/* Institutional header */}
-        {template.header_image_path ? (
-          <div className="doc-inst-header" style={{ padding: 0, background: "none", border: "none" }}>
-            <img
-              src={filePathToPreviewUrl(template.header_image_path)}
-              alt="Cabeçalho institucional"
-              style={{ width: "100%", display: "block" }}
-            />
-          </div>
-        ) : (
-          <div className="doc-inst-header">
-            Governo do Estado de Pernambuco — Secretaria de Defesa Social<br />
-            Gerência Geral de Polícia Científica — Instituto de Criminalística Prof. Armando Samico<br />
-            Unidade Regional de Polícia Científica Sertão Setentrional — Salgueiro
-          </div>
-        )}
-
-        {/* Case identification */}
-        <div className="doc-row-label-row">
-          <label>Identificação</label>
-          <input
-            type="text"
-            value={row.rowLabel}
-            onChange={(e) => updateRow(row.rowId, { rowLabel: e.target.value })}
-            placeholder="Ex: MAIR FREDSON — iPhone 7"
+      <div className="batch-cases">
+        {rows.map((row, idx) => (
+          <CaseCard
+            key={row.rowId}
+            row={row}
+            index={idx}
+            total={rows.length}
+            template={template}
+            sortedSections={sortedSections}
+            imagesBySectionId={imagesBySectionId}
+            orphanImages={orphanImages}
+            allImages={allImages}
+            onUpdate={(patch) => updateRow(row.rowId, patch)}
+            onRemove={() => removeRow(row.rowId)}
+            onImageChange={(pid, file) => handleImageChange(row.rowId, pid, file)}
           />
-        </div>
-
-        {/* ── Variables table ── */}
-        {template.variables.length > 0 && (
-          <table className="doc-vars-table">
-            <tbody>
-              {template.variables.map((v) => (
-                <tr key={v.id}>
-                  <td className="doc-var-label">{v.label}</td>
-                  <td>
-                    <input
-                      type="text"
-                      className="doc-var-input"
-                      value={row.variableValues[v.id] ?? ""}
-                      placeholder={VARIABLE_HINTS[v.key] ?? ""}
-                      onChange={(e) =>
-                        updateRow(row.rowId, {
-                          variableValues: { ...row.variableValues, [v.id]: e.target.value },
-                        })
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {/* ── Sections ── */}
-        {sortedSections.map((s, idx) => {
-          const isEditing = editingSections[s.id] ?? false;
-          const rawText = row.sectionTexts[s.id] ?? "";
-          const rendered = resolveVars(rawText, template, row.variableValues);
-          const sectionImages = imagesBySectionId[s.id] ?? [];
-
-          return (
-            <div className="doc-section" key={s.id}>
-              <div className="doc-section-heading">
-                <span className="doc-section-number">{idx + 1}.</span>
-                {s.label.toUpperCase()}
-                <button
-                  type="button"
-                  className="secondary"
-                  style={{ marginLeft: "auto", padding: "2px 10px", fontSize: 11, fontWeight: 600, textTransform: "none", letterSpacing: 0, flexShrink: 0 }}
-                  onClick={() =>
-                    setEditingSections((prev) => ({ ...prev, [s.id]: !isEditing }))
-                  }
-                >
-                  {isEditing ? "Visualizar" : "Editar"}
-                </button>
-              </div>
-
-              {isEditing ? (
-                <textarea
-                  className="doc-textarea"
-                  value={rawText}
-                  onChange={(e) =>
-                    updateRow(row.rowId, {
-                      sectionTexts: { ...row.sectionTexts, [s.id]: e.target.value },
-                    })
-                  }
-                  rows={10}
-                  autoFocus
-                />
-              ) : (
-                <div
-                  className="doc-section-preview"
-                  onClick={() =>
-                    setEditingSections((prev) => ({ ...prev, [s.id]: true }))
-                  }
-                  title="Clique para editar"
-                >
-                  {rendered
-                    ? rendered.split("\n").map((line, i) => {
-                        if (!line.trim()) return null;
-                        const isQuote = line.trimStart().startsWith('"') || line.trimStart().startsWith('"') || line.trimStart().startsWith('"[');
-                        return isQuote
-                          ? <p key={i} className="doc-section-quote">{line}</p>
-                          : <p key={i}>{line}</p>;
-                      })
-                    : <span className="doc-section-empty">Clique para digitar o conteúdo desta seção…</span>}
-                </div>
-              )}
-
-              {/* Image upload zones for images belonging to this section */}
-              {sectionImages.length > 0 && (
-                <div className="doc-images">
-                  {sectionImages.map((p) => (
-                    <ImageZone
-                      key={p.id}
-                      label={p.label}
-                      uploading={row.uploadingId === p.id}
-                      previewUrl={row.imagePreviewUrls[p.id] ?? null}
-                      referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
-                      onFile={(file) => void handleImageChange(row.rowId, p.id, file)}
-                      onRemove={() => updateRow(row.rowId, {
-                        imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
-                        imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
-                      })}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Orphan images (no section assigned) — rendered without a chapter heading */}
-        {orphanImages.length > 0 && (
-          <div className="doc-images" style={{ margin: "12px 0 0 0" }}>
-            {orphanImages.map((p) => (
-              <ImageZone
-                key={p.id}
-                label={p.label}
-                uploading={row.uploadingId === p.id}
-                previewUrl={row.imagePreviewUrls[p.id] ?? null}
-                referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
-                onFile={(file) => void handleImageChange(row.rowId, p.id, file)}
-                onRemove={() => updateRow(row.rowId, {
-                  imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
-                  imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
-                })}
-              />
-            ))}
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* ── Generate bar ── */}
-      <div className="doc-generate-bar">
-        <span>
-          {rows.length} {rows.length === 1 ? "laudo a gerar" : "laudos a gerar"}
+      <button
+        type="button"
+        className="batch-add-btn"
+        onClick={addRow}
+      >
+        + Adicionar caso
+      </button>
+
+      <div className="batch-generate-bar">
+        <span className="batch-generate-count">
+          {rows.length} {rows.length === 1 ? "caso" : "casos"} preenchido{rows.length !== 1 ? "s" : ""}
         </span>
-        <button type="button" disabled={submitting} onClick={handleSubmit}>
-          {submitting ? "Gerando…" : `Gerar ${rows.length === 1 ? "laudo" : `${rows.length} laudos`}`}
+        <button
+          type="button"
+          className="batch-generate-btn"
+          onClick={handlePreview}
+        >
+          {rows.length === 1 ? "Pré-visualizar laudo →" : `Pré-visualizar ${rows.length} laudos →`}
         </button>
       </div>
     </div>
   );
 }
 
-interface ImageZoneProps {
+/* ── Case card component ─────────────────────────────────────────────────── */
+
+interface CaseCardProps {
+  row: RowState;
+  index: number;
+  total: number;
+  template: Template;
+  sortedSections: Template["sections"];
+  imagesBySectionId: Record<string, Template["image_placeholders"]>;
+  orphanImages: Template["image_placeholders"];
+  allImages: Template["image_placeholders"];
+  onUpdate: (patch: Partial<RowState>) => void;
+  onRemove: () => void;
+  onImageChange: (placeholderId: string, file: File) => void;
+}
+
+function CaseCard({
+  row,
+  index,
+  total,
+  template,
+  sortedSections,
+  imagesBySectionId,
+  orphanImages,
+  allImages,
+  onUpdate,
+  onRemove,
+  onImageChange,
+}: CaseCardProps) {
+  const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
+
+  const uploadedCount = allImages.filter((p) => row.imagePaths[p.id]).length;
+  const hasAllImages = allImages.length > 0 && uploadedCount === allImages.length;
+  const hasAllVars = template.variables.every((v) => (row.variableValues[v.id] ?? "").trim() !== "");
+
+  return (
+    <div className="batch-case">
+      {/* ── Header ── */}
+      <div className="batch-case-header">
+        <div className="batch-case-num">Caso {index + 1}</div>
+        <input
+          type="text"
+          className="batch-case-label-input"
+          value={row.rowLabel}
+          placeholder="Ex: João — iPhone 13"
+          onChange={(e) => onUpdate({ rowLabel: e.target.value })}
+        />
+        <div className="batch-case-status">
+          <span title="Variáveis" className={`batch-status-dot ${hasAllVars ? "ok" : "empty"}`}>
+            {hasAllVars ? "✓" : "○"} dados
+          </span>
+          <span title="Imagens" className={`batch-status-dot ${hasAllImages ? "ok" : uploadedCount > 0 ? "partial" : "empty"}`}>
+            {hasAllImages ? "✓" : uploadedCount > 0 ? `${uploadedCount}/${allImages.length}` : "○"} fotos
+          </span>
+        </div>
+        {total > 1 && (
+          <button type="button" className="batch-case-remove" title="Remover caso" onClick={onRemove}>
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* ── Variables grid ── */}
+      {template.variables.length > 0 && (
+        <div className="batch-vars-grid">
+          {template.variables.map((v) => (
+            <div key={v.id} className="batch-var-field">
+              <label className="batch-var-label">{v.label}</label>
+              <input
+                type="text"
+                className="batch-var-input"
+                value={row.variableValues[v.id] ?? ""}
+                placeholder={VARIABLE_HINTS[v.key] ?? ""}
+                onChange={(e) =>
+                  onUpdate({ variableValues: { ...row.variableValues, [v.id]: e.target.value } })
+                }
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Images row ── */}
+      {allImages.length > 0 && (
+        <div className="batch-images-row">
+          {allImages.map((p) => (
+            <CompactImageZone
+              key={p.id}
+              label={p.label}
+              uploading={row.uploadingId === p.id}
+              previewUrl={row.imagePreviewUrls[p.id] ?? null}
+              referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
+              onFile={(file) => onImageChange(p.id, file)}
+              onRemove={() =>
+                onUpdate({
+                  imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
+                  imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
+                })
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Section text accordion ── */}
+      <div className="batch-sections-toggle">
+        <button
+          type="button"
+          className="secondary batch-toggle-btn"
+          onClick={() => onUpdate({ sectionsExpanded: !row.sectionsExpanded })}
+        >
+          {row.sectionsExpanded ? "▲ Ocultar texto das seções" : "▼ Ver/editar texto das seções"}
+        </button>
+      </div>
+
+      {row.sectionsExpanded && (
+        <div className="batch-sections-body">
+          {sortedSections.map((s, sidx) => {
+            const isEditing = editingSections[s.id] ?? false;
+            const rawText = row.sectionTexts[s.id] ?? "";
+            const rendered = resolveVars(rawText, template, row.variableValues);
+            const sectionImages = imagesBySectionId[s.id] ?? [];
+
+            return (
+              <div className="batch-section" key={s.id}>
+                <div className="batch-section-heading">
+                  <span>{sidx + 1}. {s.label.toUpperCase()}</span>
+                  <button
+                    type="button"
+                    className="secondary"
+                    style={{ padding: "2px 10px", fontSize: 11, marginLeft: "auto", flexShrink: 0 }}
+                    onClick={() => setEditingSections((prev) => ({ ...prev, [s.id]: !isEditing }))}
+                  >
+                    {isEditing ? "Visualizar" : "Editar"}
+                  </button>
+                </div>
+
+                {isEditing ? (
+                  <textarea
+                    className="doc-textarea"
+                    value={rawText}
+                    onChange={(e) =>
+                      onUpdate({ sectionTexts: { ...row.sectionTexts, [s.id]: e.target.value } })
+                    }
+                    rows={8}
+                    autoFocus
+                  />
+                ) : (
+                  <div
+                    className="doc-section-preview"
+                    onClick={() => setEditingSections((prev) => ({ ...prev, [s.id]: true }))}
+                    title="Clique para editar"
+                  >
+                    {rendered
+                      ? rendered.split("\n").map((line, i) => {
+                          if (!line.trim()) return null;
+                          const isQuote = line.trimStart().startsWith('"') || line.trimStart().startsWith('“') || line.trimStart().startsWith('„[');
+                          return isQuote
+                            ? <p key={i} className="doc-section-quote">{line}</p>
+                            : <p key={i}>{line}</p>;
+                        })
+                      : <span className="doc-section-empty">Clique para digitar…</span>}
+                  </div>
+                )}
+
+                {sectionImages.length > 0 && (
+                  <div className="doc-images" style={{ marginTop: 8 }}>
+                    {sectionImages.map((p) => (
+                      <ImageZoneFull
+                        key={p.id}
+                        label={p.label}
+                        uploading={row.uploadingId === p.id}
+                        previewUrl={row.imagePreviewUrls[p.id] ?? null}
+                        referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
+                        onFile={(file) => onImageChange(p.id, file)}
+                        onRemove={() =>
+                          onUpdate({
+                            imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
+                            imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {orphanImages.length > 0 && (
+            <div className="doc-images" style={{ margin: "12px 0 0 0" }}>
+              {orphanImages.map((p) => (
+                <ImageZoneFull
+                  key={p.id}
+                  label={p.label}
+                  uploading={row.uploadingId === p.id}
+                  previewUrl={row.imagePreviewUrls[p.id] ?? null}
+                  referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
+                  onFile={(file) => onImageChange(p.id, file)}
+                  onRemove={() =>
+                    onUpdate({
+                      imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
+                      imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
+                    })
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Compact image zone (used in the main images row) ───────────────────── */
+
+interface CompactImageZoneProps {
   label: string;
   uploading: boolean;
-  previewUrl: string | null;        // user-uploaded image
-  referenceUrl?: string | null;     // image from the original PDF (for reference)
+  previewUrl: string | null;
+  referenceUrl?: string | null;
   onFile: (file: File) => void;
   onRemove?: () => void;
 }
 
-function ImageZone({ label, uploading, previewUrl, referenceUrl, onFile, onRemove }: ImageZoneProps) {
+function CompactImageZone({ label, uploading, previewUrl, onFile, onRemove }: CompactImageZoneProps) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -421,89 +426,113 @@ function ImageZone({ label, uploading, previewUrl, referenceUrl, onFile, onRemov
     if (file && file.type.startsWith("image/")) onFile(file);
   }
 
-  const activeUrl = previewUrl ?? null;
+  return (
+    <div className="compact-image-zone">
+      <div className="compact-image-label">{label}</div>
+
+      {previewUrl ? (
+        <div className="compact-image-filled" onClick={() => inputRef.current?.click()} title="Clique para trocar">
+          <img src={previewUrl} alt={label} className="compact-image-thumb" />
+          <div className="compact-image-overlay">Trocar</div>
+          <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} disabled={uploading}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+        </div>
+      ) : (
+        <div
+          className={`compact-image-drop${dragging ? " compact-image-drop--drag" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+        >
+          <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} disabled={uploading}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+          {uploading
+            ? <span className="compact-image-hint">Enviando…</span>
+            : <span className="compact-image-hint">{dragging ? "Solte aqui" : "+ foto"}</span>}
+        </div>
+      )}
+
+      {previewUrl && onRemove && (
+        <button type="button" className="compact-image-remove" onClick={onRemove} title="Remover">✕</button>
+      )}
+    </div>
+  );
+}
+
+/* ── Full image zone (inside section text accordion) ────────────────────── */
+
+interface ImageZoneFullProps {
+  label: string;
+  uploading: boolean;
+  previewUrl: string | null;
+  referenceUrl?: string | null;
+  onFile: (file: File) => void;
+  onRemove?: () => void;
+}
+
+function ImageZoneFull({ label, uploading, previewUrl, referenceUrl, onFile, onRemove }: ImageZoneFullProps) {
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) onFile(file);
+  }
 
   return (
     <div className="doc-image-zone">
       <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ flex: 1 }}>{label}</span>
-        {activeUrl && onRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: "0 4px", fontWeight: 700 }}
-            title="Remover imagem"
-          >
+        {previewUrl && onRemove && (
+          <button type="button" onClick={onRemove}
+            style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: "0 4px", fontWeight: 700 }}>
             ✕ Remover
           </button>
         )}
       </div>
 
-      {activeUrl ? (
+      {previewUrl ? (
         <div>
-          <img src={activeUrl} alt={label} className="doc-image-preview" />
+          <img src={previewUrl} alt={label} className="doc-image-preview" />
           <div className="doc-image-caption">{label}</div>
           <div className="doc-image-change">
             <label style={{ fontSize: 12, color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>
               Trocar imagem
-              <input
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) onFile(file);
-                }}
-              />
+              <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploading}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
             </label>
           </div>
         </div>
       ) : referenceUrl ? (
-        /* Show the reference image from the PDF with an overlay to replace it */
         <div style={{ position: "relative" }}>
           <img src={referenceUrl} alt={label} className="doc-image-preview" style={{ opacity: 0.55, filter: "grayscale(30%)" }} />
-          <div
-            className={`doc-image-drop${dragging ? " doc-image-drop--drag" : ""}`}
+          <div className={`doc-image-drop${dragging ? " doc-image-drop--drag" : ""}`}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
             onClick={() => inputRef.current?.click()}
-            style={{ cursor: "pointer", position: "absolute", inset: 0, background: "rgba(255,255,255,0.62)", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #93c5fd", borderRadius: 6 }}
-          >
-            <input ref={inputRef} type="file" accept="image/*" disabled={uploading} style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onFile(file); }} />
+            style={{ cursor: "pointer", position: "absolute", inset: 0, background: "rgba(255,255,255,0.62)", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #93c5fd", borderRadius: 6 }}>
+            <input ref={inputRef} type="file" accept="image/*" disabled={uploading} style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
             <div className="doc-image-drop-label" style={{ textAlign: "center" }}>
               {uploading ? "Enviando…" : dragging ? <strong>Solte aqui</strong> : <><strong>Substituir</strong> — clique ou arraste</>}
             </div>
           </div>
         </div>
       ) : (
-        <div
-          className={`doc-image-drop${dragging ? " doc-image-drop--drag" : ""}`}
+        <div className={`doc-image-drop${dragging ? " doc-image-drop--drag" : ""}`}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          style={{ cursor: "pointer" }}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            disabled={uploading}
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onFile(file);
-            }}
-          />
+          style={{ cursor: "pointer" }}>
+          <input ref={inputRef} type="file" accept="image/*" disabled={uploading} style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
           <div className="doc-image-drop-label">
-            {uploading
-              ? "Enviando…"
-              : dragging
-              ? <strong>Solte aqui</strong>
-              : <><strong>Clique ou arraste</strong> uma imagem aqui</>
-            }
+            {uploading ? "Enviando…" : dragging ? <strong>Solte aqui</strong> : <><strong>Clique ou arraste</strong> uma imagem aqui</>}
           </div>
         </div>
       )}

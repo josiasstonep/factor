@@ -60,6 +60,18 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
     }
   }
 
+  async function handleUseTemplate(id: string) {
+    setEditingId(id);
+    try {
+      const fresh = await getTemplate(id);
+      onSelect(fresh);
+      // component unmounts after onSelect, no need to reset editingId
+    } catch {
+      setError("Falha ao carregar template.");
+      setEditingId(null);
+    }
+  }
+
   async function handleEditStructure(id: string) {
     setEditingId(id);
     try {
@@ -167,9 +179,10 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
                         <button
                           type="button"
                           style={{ padding: "4px 14px", fontSize: 12 }}
-                          onClick={() => onSelect(t)}
+                          disabled={editingId === t.id}
+                          onClick={() => void handleUseTemplate(t.id)}
                         >
-                          Usar
+                          {editingId === t.id ? "…" : "Usar"}
                         </button>
                         <button
                           type="button"
