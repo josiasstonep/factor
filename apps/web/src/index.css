@@ -533,14 +533,28 @@ tr:last-child td { border-bottom: none; }
   line-height: 1.5;
 }
 .doc-section-preview p + p { margin-top: 0; }
-/* Quoted/cited block — indented left+right, no first-line indent (like Word blockquote) */
+/* Quoted/cited block — matches DOCX: 5cm left, italic, no right indent, no first-line indent */
 .doc-section-preview p.doc-section-quote {
   text-indent: 0;
-  margin-left: 2cm;
-  margin-right: 2cm;
+  margin-left: 5cm;
+  margin-right: 0;
   margin-top: 6px;
   margin-bottom: 6px;
+  font-style: italic;
 }
+/* List items (bullet · or "Vestígio N:") — no first-line indent, matches DOCX */
+.doc-section-preview p.doc-section-list {
+  text-indent: 0;
+}
+/* Perito signature block — 3 centered lines at end of document */
+.doc-signature-block {
+  text-align: center;
+  margin-top: 24pt;
+  line-height: 1.5;
+}
+.doc-signature-name  { font-size: 12px; font-weight: 400; color: #000; }
+.doc-signature-role  { font-size: 12px; color: #000; }
+.doc-signature-mat   { font-size: 11px; color: #000; }
 .doc-section-empty {
   color: #9ca3af;
   font-style: italic;
@@ -663,19 +677,19 @@ tr:last-child td { border-bottom: none; }
 }
 
 .preview-image-img {
-  max-width: 100%;
-  max-height: 380px;
+  max-width: 70%;           /* DOCX: InlineImage width=Mm(120) ≈ 70% of A4 content width */
   display: block;
-  margin: 0 auto;
+  margin: 12px auto 0;
   border-radius: 4px;
   border: 1px solid var(--c-border);
 }
 
 .preview-image-caption {
   font-size: 11px;
-  color: var(--c-muted);
+  font-weight: 700;         /* DOCX: bold */
+  color: #000;              /* DOCX: black */
   margin-top: 6px;
-  font-style: italic;
+  font-style: normal;       /* DOCX: not italic */
   text-align: center;
 }
 

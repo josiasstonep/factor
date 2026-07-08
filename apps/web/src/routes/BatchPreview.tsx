@@ -6,6 +6,11 @@ import type { RowState } from "./BatchForm";
 
 const SIDECAR_PORT = 8731;
 
+// Matches "Josias Stone Pinheiro dos Santos Perito Criminal Mat. 18435416-01"
+const SIGNATURE_RE = /^(.+?)\s+Perito\s+Criminal\s+Mat\.\s*([\d-]+)\s*$/i;
+// Matches list items: bullet chars or "Vestígio N"
+const LIST_ITEM_RE = /^[·•–—•\-]\s|^Vest[ií]gio\s+\S+/u;
+
 interface Props {
   template: Template;
   rows: RowState[];
@@ -177,21 +182,39 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
                 {s.label.toUpperCase()}
               </div>
 
-              <div className="doc-section-preview preview-readonly">
+              <div className=”doc-section-preview preview-readonly”>
                 {rendered
-                  ? rendered.split("\n").map((line, i) => {
+                  ? rendered.split(“\n”).map((line, i) => {
                       if (!line.trim()) return null;
-                      const isQuote =
-                        line.trimStart().startsWith('"') ||
-                        line.trimStart().startsWith("“") ||
-                        line.trimStart().startsWith("„[");
-                      return isQuote ? (
-                        <p key={i} className="doc-section-quote">{line}</p>
-                      ) : (
-                        <p key={i}>{line}</p>
-                      );
+                      const trimmed = line.trimStart();
+
+                      // Perito signature → 3 centered lines (matches _postprocess_signature in DOCX)
+                      const sig = trimmed.match(SIGNATURE_RE);
+                      if (sig) {
+                        return (
+                          <div key={i} className=”doc-signature-block”>
+                            <div className=”doc-signature-name”>{sig[1].trim()}</div>
+                            <div className=”doc-signature-role”>Perito Criminal</div>
+                            <div className=”doc-signature-mat”>Mat. {sig[2].trim()}</div>
+                          </div>
+                        );
+                      }
+
+                      // Block quote: starts with opening quote char (matches _is_quote_start in DOCX)
+                      if (
+                        trimmed.startsWith('”') ||
+                        trimmed.startsWith('“') ||
+                        trimmed.startsWith('„') ||
+                        trimmed.startsWith('«') ||
+                        trimmed.startsWith('[...')
+                      ) return <p key={i} className=”doc-section-quote”>{line}</p>;
+
+                      // List item: bullet or “Vestígio N” → no first-line indent
+                      if (LIST_ITEM_RE.test(trimmed)) return <p key={i} className=”doc-section-list”>{line}</p>;
+
+                      return <p key={i}>{line}</p>;
                     })
-                  : <span className="doc-section-empty">Seção sem texto.</span>}
+                  : <span className=”doc-section-empty”>Seção sem texto.</span>}
               </div>
 
               {/* Section images */}
