@@ -298,66 +298,77 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
         + Adicionar seção
       </button>
 
-      <h3 style={{ marginTop: 28 }}>Variáveis de cabeçalho</h3>
-      <table>
-        <thead>
-          <tr>
-            <th style={{ width: 160 }}>Chave</th>
-            <th>Rótulo</th>
-            <th>Detectado no PDF</th>
-            <th style={{ width: 60 }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {variables.map((v) => (
-            <tr key={v.id}>
-              <td>
-                <input
-                  type="text"
-                  value={v.key}
-                  onChange={(e) => updateVariable(v.id, { key: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  className="tpl-label-input"
-                  placeholder="Rótulo do campo"
-                  value={labelOverrides[v.id] ?? v.label}
-                  onChange={(e) =>
-                    setLabelOverrides((prev) => ({ ...prev, [v.id]: e.target.value }))
-                  }
-                />
-              </td>
-              <td>
-                <span className="hint">{v.source_label_detected ?? "—"}</span>
-              </td>
-              <td>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setVariables((p) => p.filter((x) => x.id !== v.id))}
-                >
-                  Apagar
-                </button>
-              </td>
+      <details style={{ marginTop: 28 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 15, color: "#374151", userSelect: "none", listStyle: "none", display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 11, color: "#9ca3af" }}>▶</span>
+          Variáveis de cabeçalho
+          <span style={{ fontSize: 11, fontWeight: 400, color: "#9ca3af", marginLeft: 4 }}>
+            ({variables.length}) — preenchidas na etapa seguinte
+          </span>
+        </summary>
+        <div style={{ marginTop: 12 }}>
+        <table>
+          <thead>
+            <tr>
+              <th style={{ width: 160 }}>Chave</th>
+              <th>Rótulo</th>
+              <th>Detectado no PDF</th>
+              <th style={{ width: 60 }}></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <button
-        type="button"
-        className="secondary"
-        onClick={() =>
-          setVariables((p) => {
-            const newId = uid();
-            setLabelOverrides((prev) => ({ ...prev, [newId]: "" }));
-            return [...p, { id: newId, key: `campo_${p.length + 1}`, label: "Novo Campo", source_label_detected: null, source_value_detected: null, required: true, value_type: "text" }];
-          })
-        }
-      >
-        + Adicionar variável
-      </button>
+          </thead>
+          <tbody>
+            {variables.map((v) => (
+              <tr key={v.id}>
+                <td>
+                  <input
+                    type="text"
+                    value={v.key}
+                    onChange={(e) => updateVariable(v.id, { key: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    className="tpl-label-input"
+                    placeholder="Rótulo do campo"
+                    value={labelOverrides[v.id] ?? v.label}
+                    onChange={(e) =>
+                      setLabelOverrides((prev) => ({ ...prev, [v.id]: e.target.value }))
+                    }
+                  />
+                </td>
+                <td>
+                  <span className="hint">{v.source_label_detected ?? "—"}</span>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setVariables((p) => p.filter((x) => x.id !== v.id))}
+                  >
+                    Apagar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button
+          type="button"
+          className="secondary"
+          style={{ marginTop: 8 }}
+          onClick={() =>
+            setVariables((p) => {
+              const newId = uid();
+              setLabelOverrides((prev) => ({ ...prev, [newId]: "" }));
+              return [...p, { id: newId, key: `campo_${p.length + 1}`, label: "Novo Campo", source_label_detected: null, source_value_detected: null, required: true, value_type: "text" }];
+            })
+          }
+        >
+          + Adicionar variável
+        </button>
+        </div>
+      </details>
 
       <h3 style={{ marginTop: 28 }}>Imagens</h3>
       <table>
