@@ -5,7 +5,7 @@ const STANDARD_FORENSIC_VARS: { key: string; label: string }[] = [
   { key: "imei1",              label: "IMEI 1" },
   { key: "imei2",              label: "IMEI 2" },
   { key: "nome_perito",        label: "Nome do Perito" },
-  { key: "circunscricao",      label: "Circunscrição" },
+  { key: "delegacia_requisitante", label: "Delegacia Requisitante" },
   { key: "trecho_solicitacao", label: "Trecho da Solicitação" },
 ];
 

@@ -56,12 +56,12 @@ def _inject_placeholders(
 
 
 _STANDARD_FORENSIC_VARS: list[tuple[str, str]] = [
-    ("modelo",              "Modelo"),
-    ("imei1",               "IMEI 1"),
-    ("imei2",               "IMEI 2"),
-    ("nome_perito",         "Nome do Perito"),
-    ("circunscricao",       "Circunscrição"),
-    ("trecho_solicitacao",  "Trecho da Solicitação"),
+    ("modelo",                  "Modelo"),
+    ("imei1",                   "IMEI 1"),
+    ("imei2",                   "IMEI 2"),
+    ("nome_perito",             "Nome do Perito"),
+    ("delegacia_requisitante",  "Delegacia Requisitante"),
+    ("trecho_solicitacao",      "Trecho da Solicitação"),
 ]
 
 

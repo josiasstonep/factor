@@ -105,6 +105,11 @@ INLINE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
         r'\bPerito\s+Criminal\s+((?:[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÇÜ]\w+)(?:\s+[A-Za-záéíóúâêîôûãõàçü]\w*){2,6})\s+para\b',
         re.UNICODE,
     ), "nome_perito", "Nome do Perito"),
+    # Circunscrição: "170ª CIRCUNSCRIÇÃO - ITAPETIM - PCPE"
+    (re.compile(
+        r'(\d+\s*[ªº]\s*CIRCUNSCRI[CÇ][ÃA]O\s*[-–]\s*[\w\s]+[-–]\s*\w+)',
+        re.IGNORECASE | re.UNICODE,
+    ), "delegacia_requisitante", "Delegacia Requisitante"),
 ]
 
 # Regex to detect the solicitation block-quote: "[...]text[...]" in the Histórico section.
