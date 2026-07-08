@@ -182,9 +182,9 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
                 {s.label.toUpperCase()}
               </div>
 
-              <div className=”doc-section-preview preview-readonly”>
+              <div className="doc-section-preview preview-readonly">
                 {rendered
-                  ? rendered.split(“\n”).map((line, i) => {
+                  ? rendered.split("\n").map((line, i) => {
                       if (!line.trim()) return null;
                       const trimmed = line.trimStart();
 
@@ -192,29 +192,29 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
                       const sig = trimmed.match(SIGNATURE_RE);
                       if (sig) {
                         return (
-                          <div key={i} className=”doc-signature-block”>
-                            <div className=”doc-signature-name”>{sig[1].trim()}</div>
-                            <div className=”doc-signature-role”>Perito Criminal</div>
-                            <div className=”doc-signature-mat”>Mat. {sig[2].trim()}</div>
+                          <div key={i} className="doc-signature-block">
+                            <div className="doc-signature-name">{sig[1].trim()}</div>
+                            <div className="doc-signature-role">Perito Criminal</div>
+                            <div className="doc-signature-mat">Mat. {sig[2].trim()}</div>
                           </div>
                         );
                       }
 
                       // Block quote: starts with opening quote char (matches _is_quote_start in DOCX)
                       if (
-                        trimmed.startsWith('”') ||
-                        trimmed.startsWith('“') ||
-                        trimmed.startsWith('„') ||
-                        trimmed.startsWith('«') ||
+                        trimmed.startsWith('“') ||  // " LEFT DOUBLE QUOTATION MARK
+                        trimmed.startsWith('„') ||  // „ DOUBLE LOW-9 QUOTATION MARK
+                        trimmed.startsWith('«') ||  // « LEFT-POINTING DOUBLE ANGLE
+                        trimmed.startsWith('"') ||       // " ASCII fallback
                         trimmed.startsWith('[...')
-                      ) return <p key={i} className=”doc-section-quote”>{line}</p>;
+                      ) return <p key={i} className="doc-section-quote">{line}</p>;
 
-                      // List item: bullet or “Vestígio N” → no first-line indent
-                      if (LIST_ITEM_RE.test(trimmed)) return <p key={i} className=”doc-section-list”>{line}</p>;
+                      // List item: bullet or "Vestígio N" → no first-line indent
+                      if (LIST_ITEM_RE.test(trimmed)) return <p key={i} className="doc-section-list">{line}</p>;
 
                       return <p key={i}>{line}</p>;
                     })
-                  : <span className=”doc-section-empty”>Seção sem texto.</span>}
+                  : <span className="doc-section-empty">Seção sem texto.</span>}
               </div>
 
               {/* Section images */}
