@@ -298,6 +298,9 @@ tr:last-child td { border-bottom: none; }
   font-size: 12px;
   line-height: 1.5;
   color: #000;
+  overflow-x: hidden;        /* Prevent horizontal overflow */
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Institutional header strip */
@@ -379,6 +382,7 @@ tr:last-child td { border-bottom: none; }
 .doc-vars-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;       /* Forces columns to respect widths and wrap long values */
   margin-bottom: 28px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
@@ -389,6 +393,8 @@ tr:last-child td { border-bottom: none; }
   border-bottom: 1px solid #e5e7eb;
   font-size: 12px;
   vertical-align: middle;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .doc-vars-table tr:last-child td { border-bottom: none; }
 .doc-var-label {
@@ -531,6 +537,8 @@ tr:last-child td { border-bottom: none; }
   margin: 0;
   text-indent: 1.25cm;
   line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .doc-section-preview p + p { margin-top: 0; }
 /* Quoted/cited block — matches DOCX: 5cm left, italic, no right indent, no first-line indent */

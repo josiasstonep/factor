@@ -184,36 +184,52 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
 
               <div className="doc-section-preview preview-readonly">
                 {rendered
-                  ? rendered.split("\n").map((line, i) => {
-                      if (!line.trim()) return null;
-                      const trimmed = line.trimStart();
+                  ? (() => {
+                      let inQuote = false;
+                      return rendered.split("\n").map((line, i) => {
+                        if (!line.trim()) return null;
+                        const trimmed = line.trimStart();
+                        const stripped = trimmed.trimEnd();
 
-                      // Perito signature → 3 centered lines (matches _postprocess_signature in DOCX)
-                      const sig = trimmed.match(SIGNATURE_RE);
-                      if (sig) {
-                        return (
-                          <div key={i} className="doc-signature-block">
-                            <div className="doc-signature-name">{sig[1].trim()}</div>
-                            <div className="doc-signature-role">Perito Criminal</div>
-                            <div className="doc-signature-mat">Mat. {sig[2].trim()}</div>
-                          </div>
-                        );
-                      }
+                        // Perito signature: 3 centered lines
+                        const sig = trimmed.match(SIGNATURE_RE);
+                        if (sig) {
+                          return (
+                            <div key={i} className="doc-signature-block">
+                              <div className="doc-signature-name">{sig[1].trim()}</div>
+                              <div className="doc-signature-role">Perito Criminal</div>
+                              <div className="doc-signature-mat">Mat. {sig[2].trim()}</div>
+                            </div>
+                          );
+                        }
 
-                      // Block quote: starts with opening quote char (matches _is_quote_start in DOCX)
-                      if (
-                        trimmed.startsWith('“') ||  // " LEFT DOUBLE QUOTATION MARK
-                        trimmed.startsWith('„') ||  // „ DOUBLE LOW-9 QUOTATION MARK
-                        trimmed.startsWith('«') ||  // « LEFT-POINTING DOUBLE ANGLE
-                        trimmed.startsWith('"') ||       // " ASCII fallback
-                        trimmed.startsWith('[...')
-                      ) return <p key={i} className="doc-section-quote">{line}</p>;
+                        // Quote state tracking (mirrors _is_quote_start/_is_quote_end in DOCX)
+                        if (!inQuote) {
+                          if (
+                            trimmed.startsWith('“') || // “
+                            trimmed.startsWith('„') || // „
+                            trimmed.startsWith('«') || // «
+                            trimmed.startsWith('”') ||
+                            trimmed.startsWith('[...')
+                          ) inQuote = true;
+                        }
+                        if (inQuote) {
+                          const endsQuote =
+                            stripped.endsWith('”') ||  // “
+                            stripped.endsWith('»') ||  // »
+                            stripped.endsWith('’') ||  // '
+                            stripped.endsWith('”') ||
+                            stripped.includes('[...]');
+                          if (endsQuote) inQuote = false;
+                          return <p key={i} className="doc-section-quote">{line}</p>;
+                        }
 
-                      // List item: bullet or "Vestígio N" → no first-line indent
-                      if (LIST_ITEM_RE.test(trimmed)) return <p key={i} className="doc-section-list">{line}</p>;
+                        // List item: bullet or “Vestígio N”
+                        if (LIST_ITEM_RE.test(trimmed)) return <p key={i} className="doc-section-list">{line}</p>;
 
-                      return <p key={i}>{line}</p>;
-                    })
+                        return <p key={i}>{line}</p>;
+                      });
+                    })()
                   : <span className="doc-section-empty">Seção sem texto.</span>}
               </div>
 
