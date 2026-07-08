@@ -133,6 +133,7 @@ def render_docx(
     tpl.save(output_path)
     _postprocess_captions(output_path, template, var_context)
     _postprocess_paragraphs(output_path)
+    _postprocess_signature(output_path)
     return output_path
 
 
@@ -154,6 +155,10 @@ def _is_quote_end(text: str) -> bool:
 _HEADING_RE = re.compile(r'^\d+\.\s')
 _CAPTION_RE = re.compile(r'^Figura\s+\d+', re.IGNORECASE)
 _LIST_ITEM_RE = re.compile(r'^[·•–—•·\-]\s|^Vest[ií]gio\s+\S+', re.UNICODE)
+_SIGNATURE_RE = re.compile(
+    r'^(.+?)\s+Perito\s+Criminal\s+Mat\.\s*([\d-]+)\s*$',
+    re.IGNORECASE | re.UNICODE,
+)
 
 
 def _postprocess_captions(docx_path: Path, template, var_context: dict[str, str]) -> None:
@@ -205,6 +210,79 @@ def _postprocess_captions(docx_path: Path, template, var_context: dict[str, str]
         img_idx = new_children.index(img_el)
         body_el.insert(img_idx + 1, cap_el)
         changed = True
+
+    if changed:
+        doc.save(str(docx_path))
+
+
+def _postprocess_signature(docx_path: Path) -> None:
+    """Detect 'NAME Perito Criminal Mat. XXXX' paragraphs and reformat as 3 centered lines.
+
+    Result:
+        [space 24pt]
+        NAME                  ← centered, Arial 12pt
+        Perito Criminal       ← centered, Arial 12pt
+        Mat. XXXX             ← centered, Arial 11pt
+    """
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
+    doc = Document(str(docx_path))
+    body = doc.element.body
+    body_children = list(body)
+    changed = False
+
+    for i, el in enumerate(body_children):
+        if el.tag != qn("w:p"):
+            continue
+        text = "".join(t.text or "" for t in el.iter(qn("w:t"))).strip()
+        m = _SIGNATURE_RE.match(text)
+        if not m:
+            continue
+
+        name = m.group(1).strip()
+        mat = m.group(2).strip()
+
+        def _sig_para(line: str, size_pt: int, space_before_pt: int = 0) -> OxmlElement:
+            pe = OxmlElement("w:p")
+            pPr = OxmlElement("w:pPr")
+            jc = OxmlElement("w:jc")
+            jc.set(qn("w:val"), "center")
+            pPr.append(jc)
+            ind = OxmlElement("w:ind")
+            ind.set(qn("w:firstLine"), "0")
+            pPr.append(ind)
+            sp = OxmlElement("w:spacing")
+            sp.set(qn("w:before"), str(space_before_pt * 20))
+            sp.set(qn("w:after"), "0")
+            sp.set(qn("w:line"), "360")
+            sp.set(qn("w:lineRule"), "auto")
+            pPr.append(sp)
+            pe.append(pPr)
+            r = OxmlElement("w:r")
+            rPr = OxmlElement("w:rPr")
+            rf = OxmlElement("w:rFonts")
+            rf.set(qn("w:ascii"), "Arial")
+            rf.set(qn("w:hAnsi"), "Arial")
+            rPr.append(rf)
+            sz = OxmlElement("w:sz")
+            sz.set(qn("w:val"), str(size_pt * 2))
+            rPr.append(sz)
+            r.append(rPr)
+            t = OxmlElement("w:t")
+            t.text = line
+            t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+            r.append(t)
+            pe.append(r)
+            return pe
+
+        body.remove(el)
+        # Insert in reverse order so they appear in correct reading order
+        body.insert(i, _sig_para(f"Mat. {mat}", 11))
+        body.insert(i, _sig_para("Perito Criminal", 12))
+        body.insert(i, _sig_para(name, 12, space_before_pt=24))
+        changed = True
+        break  # Only one signature block per document
 
     if changed:
         doc.save(str(docx_path))
