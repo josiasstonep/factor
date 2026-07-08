@@ -159,6 +159,7 @@ _SIGNATURE_RE = re.compile(
     r'^(.+?)\s+Perito\s+Criminal\s+Mat\.\s*([\d-]+)\s*$',
     re.IGNORECASE | re.UNICODE,
 )
+_SIG_LINE_RE = re.compile(r'_{4,}')  # 4+ underscores = signature placeholder line
 
 
 def _postprocess_captions(docx_path: Path, template, var_context: dict[str, str]) -> None:
@@ -216,13 +217,19 @@ def _postprocess_captions(docx_path: Path, template, var_context: dict[str, str]
 
 
 def _postprocess_signature(docx_path: Path) -> None:
-    """Detect 'NAME Perito Criminal Mat. XXXX' paragraphs and reformat as 3 centered lines.
+    """Reformat the perito signature block at the end of the document.
 
-    Result:
-        [space 24pt]
-        NAME                  ← centered, Arial 12pt
-        Perito Criminal       ← centered, Arial 12pt
-        Mat. XXXX             ← centered, Arial 11pt
+    Input (rendered from PDF template):
+        ...área de informática forense. ______________________
+        NAME Perito Criminal Mat. XXXX
+
+    Output:
+        ...área de informática forense.
+                                              [36pt gap]
+        ______________________________        ← centered, Arial 12pt
+        NAME                                  ← centered, Arial 12pt
+        Perito Criminal                       ← centered, Arial 12pt
+        Mat. XXXX                             ← centered, Arial 11pt
     """
     from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
@@ -243,7 +250,8 @@ def _postprocess_signature(docx_path: Path) -> None:
         name = m.group(1).strip()
         mat = m.group(2).strip()
 
-        def _sig_para(line: str, size_pt: int, space_before_pt: int = 0) -> OxmlElement:
+        def _sig_para(line: str, size_pt: int,
+                      space_before_pt: int = 0, space_after_pt: int = 0) -> OxmlElement:
             pe = OxmlElement("w:p")
             pPr = OxmlElement("w:pPr")
             jc = OxmlElement("w:jc")
@@ -254,33 +262,55 @@ def _postprocess_signature(docx_path: Path) -> None:
             pPr.append(ind)
             sp = OxmlElement("w:spacing")
             sp.set(qn("w:before"), str(space_before_pt * 20))
-            sp.set(qn("w:after"), "0")
+            sp.set(qn("w:after"), str(space_after_pt * 20))
             sp.set(qn("w:line"), "360")
             sp.set(qn("w:lineRule"), "auto")
             pPr.append(sp)
             pe.append(pPr)
-            r = OxmlElement("w:r")
-            rPr = OxmlElement("w:rPr")
-            rf = OxmlElement("w:rFonts")
-            rf.set(qn("w:ascii"), "Arial")
-            rf.set(qn("w:hAnsi"), "Arial")
-            rPr.append(rf)
-            sz = OxmlElement("w:sz")
-            sz.set(qn("w:val"), str(size_pt * 2))
-            rPr.append(sz)
-            r.append(rPr)
-            t = OxmlElement("w:t")
-            t.text = line
-            t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-            r.append(t)
-            pe.append(r)
+            if line:
+                r = OxmlElement("w:r")
+                rPr = OxmlElement("w:rPr")
+                rf = OxmlElement("w:rFonts")
+                rf.set(qn("w:ascii"), "Arial")
+                rf.set(qn("w:hAnsi"), "Arial")
+                rPr.append(rf)
+                sz = OxmlElement("w:sz")
+                sz.set(qn("w:val"), str(size_pt * 2))
+                rPr.append(sz)
+                r.append(rPr)
+                t = OxmlElement("w:t")
+                t.text = line
+                t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+                r.append(t)
+                pe.append(r)
             return pe
 
+        # Search the preceding paragraphs for one that ends with underscores (___)
+        # Strip the underscores from that paragraph — we'll render them as a centered line instead
+        sig_line_text = "_" * 30  # default if not found in preceding text
+        for j in range(i - 1, max(-1, i - 4), -1):
+            prev_el = body_children[j]
+            if prev_el.tag != qn("w:p"):
+                continue
+            prev_text = "".join(t_el.text or "" for t_el in prev_el.iter(qn("w:t")))
+            if _SIG_LINE_RE.search(prev_text):
+                # Extract the underscores and strip them from the paragraph
+                sig_line_text = _SIG_LINE_RE.search(prev_text).group(0)
+                for t_el in prev_el.iter(qn("w:t")):
+                    if t_el.text and _SIG_LINE_RE.search(t_el.text):
+                        t_el.text = _SIG_LINE_RE.sub("", t_el.text).rstrip()
+                break
+
         body.remove(el)
-        # Insert in reverse order so they appear in correct reading order
-        body.insert(i, _sig_para(f"Mat. {mat}", 11))
+        # Insert in reverse order so they appear in correct reading order:
+        #   sig_line  ← space_before=36pt separates from conclusion
+        #   name
+        #   Perito Criminal
+        #   Mat. XXXX
+        body.insert(i, _sig_para(f"Mat. {mat}", 11, space_after_pt=0))
         body.insert(i, _sig_para("Perito Criminal", 12))
-        body.insert(i, _sig_para(name, 12, space_before_pt=24))
+        body.insert(i, _sig_para(name, 12, space_after_pt=4))
+        body.insert(i, _sig_para(sig_line_text, 12, space_before_pt=36, space_after_pt=0))
         changed = True
         break  # Only one signature block per document
 

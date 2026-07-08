@@ -554,10 +554,18 @@ tr:last-child td { border-bottom: none; }
 .doc-section-preview p.doc-section-list {
   text-indent: 0;
 }
-/* Perito signature block — 3 centered lines at end of document */
+/* Perito signature: underline separator + 3 centered lines */
+.doc-signature-line {
+  text-align: center;
+  margin-top: 36pt;     /* 36pt gap separates from conclusion text */
+  margin-bottom: 0;
+  font-size: 12px;
+  color: #000;
+  line-height: 1.5;
+}
 .doc-signature-block {
   text-align: center;
-  margin-top: 24pt;
+  margin-top: 0;
   line-height: 1.5;
 }
 .doc-signature-name  { font-size: 12px; font-weight: 400; color: #000; }

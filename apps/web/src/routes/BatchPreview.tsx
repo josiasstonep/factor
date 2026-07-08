@@ -10,6 +10,8 @@ const SIDECAR_PORT = 8731;
 const SIGNATURE_RE = /^(.+?)\s+Perito\s+Criminal\s+Mat\.\s*([\d-]+)\s*$/i;
 // Matches list items: bullet chars or "Vestígio N"
 const LIST_ITEM_RE = /^[·•–—•\-]\s|^Vest[ií]gio\s+\S+/u;
+// Matches a signature underline (4+ underscores) at the end of a paragraph
+const SIG_UNDERLINE_RE = /_{4,}/;
 
 interface Props {
   template: Template;
@@ -185,11 +187,25 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
               <div className="doc-section-preview preview-readonly">
                 {rendered
                   ? (() => {
+                      // Pre-process: split lines with trailing underscores off conclusion paragraph
+                      const rawLines = rendered.split("
+");
+                      const lines: string[] = [];
+                      for (const rl of rawLines) {
+                        const um = rl.match(/^(.*?)(_{4,})\s*$/);
+                        if (um && um[1].trim()) { lines.push(um[1].trimEnd()); lines.push(um[2]); }
+                        else { lines.push(rl); }
+                      }
                       let inQuote = false;
-                      return rendered.split("\n").map((line, i) => {
+                      return lines.map((line, i) => {
                         if (!line.trim()) return null;
                         const trimmed = line.trimStart();
                         const stripped = trimmed.trimEnd();
+
+                        // Standalone underscores = signature line (centered, separated from conclusion)
+                        if (SIG_UNDERLINE_RE.test(trimmed) && trimmed.replace(/_{4,}/, "").trim() === "") {
+                          return <div key={i} className="doc-signature-line">{trimmed}</div>;
+                        }
 
                         // Perito signature: 3 centered lines
                         const sig = trimmed.match(SIGNATURE_RE);
