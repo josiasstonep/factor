@@ -100,7 +100,17 @@ INLINE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r'\bREP\s+(\d{4,6}[/_]\d{4})', re.IGNORECASE), "rep", "REP"),
     # lacre nº 1343769
     (re.compile(r'\blacre\s+n[°º]?\s*(\d{5,})', re.IGNORECASE), "lacre", "Lacre nº"),
+    # Nome do Perito Criminal: "designou o Perito Criminal Fulano De Tal para"
+    (re.compile(
+        r'\bPerito\s+Criminal\s+((?:[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÇÜ]\w+)(?:\s+[A-Za-záéíóúâêîôûãõàçü]\w*){2,6})\s+para\b',
+        re.UNICODE,
+    ), "nome_perito", "Nome do Perito"),
 ]
+
+# Regex to detect the solicitation block-quote: "[...]text[...]" in the Histórico section.
+_SOLICITATION_RE = re.compile(
+    r'\[(?:\.{3}|…)\]\s*([\s\S]{30,800}?)\s*\[(?:\.{3}|…)\]'
+)
 
 FUZZY_THRESHOLD = 80
 HEADER_PAGE_LIMIT = 3  # scan first 3 pages for label:value variables
@@ -182,6 +192,24 @@ def detect_variables(lines: list[PdfLine]) -> list[TemplateVariable]:
                     label=label,
                     source_label_detected=detected_value,
                     source_value_detected=detected_value,
+                )
+            )
+
+    # ── Pass 3: block-quote solicitation text "[...]texto[...]" ─────────────
+    if "trecho_solicitacao" not in seen_keys:
+        # Join lines preserving paragraph breaks for multi-line detection
+        full_text_nl = "\n".join(ln.text for ln in lines)
+        m = _SOLICITATION_RE.search(full_text_nl)
+        if m:
+            quote_text = " ".join(m.group(1).split())
+            seen_keys.add("trecho_solicitacao")
+            variables.append(
+                TemplateVariable(
+                    id=str(uuid4()),
+                    key="trecho_solicitacao",
+                    label="Trecho da Solicitação",
+                    source_label_detected=None,
+                    source_value_detected=quote_text[:600] if quote_text else None,
                 )
             )
 

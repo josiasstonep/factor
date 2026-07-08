@@ -827,6 +827,15 @@ tr:last-child td { border-bottom: none; }
   outline: none;
 }
 .batch-var-input::placeholder { color: #c4c9d4; }
+.batch-var-textarea {
+  resize: vertical;
+  min-height: 54px;
+  line-height: 1.45 !important;
+  font-size: 12px !important;
+}
+.batch-var-field--long {
+  grid-column: 1 / -1;
+}
 
 /* ── Variable preset picker ── */
 .var-input-row {

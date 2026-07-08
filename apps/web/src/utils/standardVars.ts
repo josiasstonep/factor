@@ -1,11 +1,12 @@
 import type { TemplateVariable } from "../api/types";
 
 const STANDARD_FORENSIC_VARS: { key: string; label: string }[] = [
-  { key: "modelo",         label: "Modelo" },
-  { key: "imei1",          label: "IMEI 1" },
-  { key: "imei2",          label: "IMEI 2" },
-  { key: "nome_perito",    label: "Nome do Perito" },
-  { key: "circunscricao",  label: "Circunscrição" },
+  { key: "modelo",             label: "Modelo" },
+  { key: "imei1",              label: "IMEI 1" },
+  { key: "imei2",              label: "IMEI 2" },
+  { key: "nome_perito",        label: "Nome do Perito" },
+  { key: "circunscricao",      label: "Circunscrição" },
+  { key: "trecho_solicitacao", label: "Trecho da Solicitação" },
 ];
 
 // Stable IDs so BatchForm and BatchPreview refer to the same variable across renders.

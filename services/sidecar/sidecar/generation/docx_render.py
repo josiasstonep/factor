@@ -86,6 +86,13 @@ def build_render_context(
         text = next((s.text for s in report_input.sections if s.section_id == section.id), "")
         if section_overrides and section.id in section_overrides:
             text = section_overrides[section.id]
+        # Strip figure-caption lines that were extracted from the PDF body text.
+        # The skeleton already renders each caption via {{ caption_key }} below the image,
+        # so keeping them here produces a duplicate paragraph.
+        text = "\n".join(
+            line for line in text.split("\n")
+            if not re.match(r"^\s*Figura\s+\d+", line, re.IGNORECASE)
+        )
         resolved = _resolve_inline_vars(_sanitize_text(text), var_context)
         # \a = docxtpl paragraph break; \n in stored text = paragraph separator
         context[section_key(section)] = resolved.replace("\n", "\a")

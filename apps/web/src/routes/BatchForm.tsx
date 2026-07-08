@@ -15,7 +15,11 @@ const VARIABLE_HINTS: Record<string, string> = {
   processo: "ex: 0000152-35.2026.8.17.2250",
   marca: "ex: XIAOMI, SAMSUNG, APPLE",
   circunscricao: "ex: 170ª CIRCUNSCRIÇÃO - ITAPETIM - PCPE",
+  nome_perito: "ex: Josias Stone Pinheiro Dos Santos",
+  trecho_solicitacao: "Cole o trecho da solicitação que aparece entre colchetes no Histórico",
 };
+
+const LONG_TEXT_KEYS = new Set(["trecho_solicitacao"]);
 
 interface Props {
   template: Template;
@@ -238,17 +242,29 @@ function VarField({
     if (updated.length === 0) setOpen(false);
   }
 
+  const isLong = LONG_TEXT_KEYS.has(variable.key);
+
   return (
-    <div ref={containerRef} className="batch-var-field" style={{ position: "relative" }}>
+    <div ref={containerRef} className={`batch-var-field${isLong ? " batch-var-field--long" : ""}`} style={{ position: "relative" }}>
       <label className="batch-var-label">{variable.label}</label>
       <div className="var-input-row">
-        <input
-          type="text"
-          className="batch-var-input"
-          value={value}
-          placeholder={VARIABLE_HINTS[variable.key] ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        {isLong ? (
+          <textarea
+            className="batch-var-input batch-var-textarea"
+            value={value}
+            placeholder={VARIABLE_HINTS[variable.key] ?? ""}
+            rows={3}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        ) : (
+          <input
+            type="text"
+            className="batch-var-input"
+            value={value}
+            placeholder={VARIABLE_HINTS[variable.key] ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        )}
         <button
           type="button"
           className="var-preset-btn"
@@ -360,7 +376,18 @@ function CaseCard({
               key={v.id}
               variable={v}
               value={row.variableValues[v.id] ?? ""}
-              onChange={(val) => onUpdate({ variableValues: { ...row.variableValues, [v.id]: val } })}
+              onChange={(val) => {
+                const patch: Partial<RowState> = {
+                  variableValues: { ...row.variableValues, [v.id]: val },
+                };
+                if (v.key === "rep") {
+                  const defaultLabel = `Caso ${index + 1}`;
+                  if (row.rowLabel === defaultLabel || row.rowLabel.startsWith("REP ")) {
+                    patch.rowLabel = val.trim() ? `REP ${val.trim()}` : defaultLabel;
+                  }
+                }
+                onUpdate(patch);
+              }}
             />
           ))}
         </div>
