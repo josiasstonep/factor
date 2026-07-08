@@ -34,14 +34,23 @@ export default function AiImprove({ result, aiImprovableSectionIds, onDone }: Pr
   const [apiKey, setApiKey] = useState("");
   const [sections, setSections] = useState<Record<SectionKey, SectionState>>({});
   const [improvingAll, setImprovingAll] = useState(false);
+  const [checkingProviders, setCheckingProviders] = useState(false);
 
-  useEffect(() => {
-    listAiProviders().then((ps) => {
+  async function loadProviders() {
+    setCheckingProviders(true);
+    try {
+      const ps = await listAiProviders();
       const available = ps.filter((p) => p.available);
       setProviders(ps);
-      if (available.length > 0) setSelectedProvider(available[0].name);
-    });
-  }, []);
+      if (available.length > 0 && (!selectedProvider || !available.find(p => p.name === selectedProvider))) {
+        setSelectedProvider(available[0].name);
+      }
+    } finally {
+      setCheckingProviders(false);
+    }
+  }
+
+  useEffect(() => { void loadProviders(); }, []);
 
   const provider = providers.find((p) => p.name === selectedProvider);
   const keyRequired = provider?.requires_key ?? false;
@@ -125,16 +134,29 @@ export default function AiImprove({ result, aiImprovableSectionIds, onDone }: Pr
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <div className="field-row" style={{ flex: "1 1 200px", marginBottom: 0 }}>
           <label>Provedor</label>
-          <select
-            value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value)}
-          >
-            {providers.map((p) => (
-              <option key={p.name} value={p.name} disabled={!p.available}>
-                {p.label}{!p.available ? " (indisponível)" : ""}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <select
+              style={{ flex: 1 }}
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value)}
+            >
+              {providers.map((p) => (
+                <option key={p.name} value={p.name} disabled={!p.available}>
+                  {p.label}{!p.available ? " (indisponível)" : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="secondary"
+              title="Verificar disponibilidade novamente"
+              disabled={checkingProviders}
+              onClick={() => void loadProviders()}
+              style={{ padding: "8px 10px", fontSize: 13, flexShrink: 0 }}
+            >
+              {checkingProviders ? "…" : "↺"}
+            </button>
+          </div>
         </div>
 
         {keyRequired && (
