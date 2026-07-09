@@ -140,7 +140,8 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
     const updates: Record<SectionKey, SectionImproveState> = {};
     const rowPatches: Record<string, Record<string, string>> = {};
     for (const [key, st] of Object.entries(sections) as [SectionKey, SectionImproveState][]) {
-      if (st.aiText && st.accepted === null) {
+      // Only accept when there are actual changes (non-empty diff)
+      if (st.aiText && st.accepted === null && st.diff !== null && st.diff.length > 0) {
         updates[key] = { ...st, accepted: true };
         const [rowId, sectionId] = key.split("::") as [string, string];
         if (!rowPatches[rowId]) rowPatches[rowId] = {};
@@ -160,7 +161,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
 
   const totalPending = localRows.length * sortedSections.length;
   const totalImproved = Object.values(sections).filter((s) => s.accepted === true).length;
-  const pendingSuggestions = Object.values(sections).filter((s) => s.aiText && s.accepted === null).length;
+  const pendingSuggestions = Object.values(sections).filter((s) => s.aiText && s.accepted === null && s.diff !== null && s.diff.length > 0).length;
 
   return (
     <div className="card">
@@ -258,7 +259,8 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {st.accepted === true && <span style={{ color: "#16a34a", fontSize: 12, fontWeight: 700 }}>✓ Aceito</span>}
                     {st.accepted === false && <span style={{ color: "#6b7280", fontSize: 12 }}>Original mantido</span>}
-                    {st.aiText && st.accepted === null && (
+                    {/* Show accept/reject only when there are ACTUAL changes (non-empty diff) */}
+                    {st.diff !== null && st.diff.length > 0 && st.accepted === null && (
                       <>
                         <button type="button" style={{ padding: "4px 12px", fontSize: 12, background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }} onClick={() => handleAccept(row, s.id, true)}>
                           Aceitar
@@ -289,9 +291,9 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
                   {row.sectionTexts[s.id]}
                 </div>
 
-                {st.diff && st.accepted === null && (
+                {st.diff !== null && st.accepted === null && (
                   <div style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>SUGESTÃO DA IA</div>
+                    {/* Warnings from sanitizer — show regardless of whether there were changes */}
                     {st.warnings.length > 0 && (
                       <div style={{ fontSize: 11, color: "#b45309", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "4px 10px", marginBottom: 6 }}>
                         {st.warnings.includes("summarized") && "⚠ IA abreviou o texto — original restaurado. "}
@@ -301,7 +303,17 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
                         {st.warnings.includes("preamble_stripped") && "• Prefixo removido automaticamente."}
                       </div>
                     )}
-                    <DiffView diff={st.diff} />
+                    {st.diff.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>SUGESTÃO DA IA</div>
+                        <DiffView diff={st.diff} />
+                      </>
+                    )}
+                    {st.diff.length === 0 && st.warnings.length === 0 && (
+                      <div style={{ fontSize: 12, color: "#6b7280", fontStyle: "italic" }}>
+                        Sem alterações — IA confirmou que o texto já está correto para este caso.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

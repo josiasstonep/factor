@@ -233,6 +233,7 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
             <th style={{ width: 140 }}>Tipo</th>
             <th>Rótulo</th>
             <th>Texto detectado no PDF</th>
+            <th style={{ width: 52, textAlign: "center" }} title="A IA adapta este capítulo no passo 4">IA</th>
             <th style={{ width: 60 }}></th>
           </tr>
         </thead>
@@ -271,6 +272,15 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
                 </td>
                 <td>
                   <span className="hint">{s.heading_text ?? "(sem título detectado)"}</span>
+                </td>
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    title={s.is_ai_improvable ? "IA vai adaptar esta seção (clique para desativar)" : "IA vai ignorar esta seção (clique para ativar)"}
+                    checked={s.is_ai_improvable}
+                    onChange={(e) => updateSection(s.id, { is_ai_improvable: e.target.checked })}
+                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563eb" }}
+                  />
                 </td>
                 <td>
                   <button

@@ -3,12 +3,12 @@ import httpx
 from sidecar.ai_providers.base import build_system_prompt, build_user_message, register
 
 _API_URL = "https://api.groq.com/openai/v1/chat/completions"
-_DEFAULT_MODEL = "llama-3.1-8b-instant"
+_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 
 class _Groq:
     name = "groq"
-    label = "Groq (LLaMA rápido)"
+    label = "Groq (LLaMA 70B — grátis)"
     requires_key = True
 
     async def is_available(self) -> bool:
