@@ -134,8 +134,31 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
     setImprovingAll(false);
   }
 
+  function handleAcceptAll() {
+    const updates: Record<SectionKey, SectionImproveState> = {};
+    const rowPatches: Record<string, Record<string, string>> = {};
+    for (const [key, st] of Object.entries(sections) as [SectionKey, SectionImproveState][]) {
+      if (st.aiText && st.accepted === null) {
+        updates[key] = { ...st, accepted: true };
+        const [rowId, sectionId] = key.split("::") as [string, string];
+        if (!rowPatches[rowId]) rowPatches[rowId] = {};
+        rowPatches[rowId][sectionId] = st.aiText;
+      }
+    }
+    if (Object.keys(updates).length === 0) return;
+    setSections((prev) => ({ ...prev, ...updates }));
+    setLocalRows((prev) =>
+      prev.map((r) =>
+        rowPatches[r.rowId]
+          ? { ...r, sectionTexts: { ...r.sectionTexts, ...rowPatches[r.rowId] } }
+          : r,
+      ),
+    );
+  }
+
   const totalPending = localRows.length * sortedSections.length;
   const totalImproved = Object.values(sections).filter((s) => s.accepted === true).length;
+  const pendingSuggestions = Object.values(sections).filter((s) => s.aiText && s.accepted === null).length;
 
   return (
     <div className="card">
@@ -180,7 +203,16 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
           </div>
         )}
 
-        <div style={{ alignSelf: "flex-end" }}>
+        <div style={{ alignSelf: "flex-end", display: "flex", gap: 8 }}>
+          {pendingSuggestions > 0 && (
+            <button
+              type="button"
+              style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+              onClick={handleAcceptAll}
+            >
+              ✓ Aceitar todas ({pendingSuggestions})
+            </button>
+          )}
           <button
             type="button"
             disabled={improvingAll || !selectedProvider || (keyRequired && !apiKey.trim())}
