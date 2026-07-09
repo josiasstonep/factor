@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createDelegacia, createPerito, listDelegacias, listPeritos, uploadImage } from "../api/client";
+import { createDelegacia, createPerito, deleteDelegacia, deletePerito, listDelegacias, listPeritos, uploadImage } from "../api/client";
 import { mergeStandardVars } from "../utils/standardVars";
 import { deletePreset, getPresets, savePreset } from "../utils/varPresets";
 import type { Delegacia, Perito, Template, TemplateVariable } from "../api/types";
@@ -216,12 +216,14 @@ function VarField({
   onChange,
   suggestions,
   onCreateNew,
+  onDeleteSuggestion,
 }: {
   variable: TemplateVariable;
   value: string;
   onChange: (val: string) => void;
-  suggestions?: { label: string; value: string }[];
+  suggestions?: { label: string; value: string; id: string }[];
   onCreateNew?: () => void;
+  onDeleteSuggestion?: (id: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [presets, setPresets] = useState<string[]>(() => getPresets(variable.key));
@@ -259,7 +261,9 @@ function VarField({
 
   const isLong = LONG_TEXT_KEYS.has(variable.key);
   const [manualMode, setManualMode] = useState(!suggestions?.length);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const hasSuggestions = suggestions && suggestions.length > 0;
+  const selectedSuggestion = hasSuggestions ? suggestions.find((s) => s.value === value) : undefined;
 
   return (
     <div ref={containerRef} className={`batch-var-field${isLong ? " batch-var-field--long" : ""}`} style={{ position: "relative" }}>
@@ -271,15 +275,46 @@ function VarField({
             value={value}
             onChange={(e) => {
               if (e.target.value === "__new__") { onCreateNew?.(); }
-              else { onChange(e.target.value); }
+              else { onChange(e.target.value); setDeletingId(null); }
             }}
           >
             <option value="">— selecionar —</option>
             {suggestions.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
+              <option key={s.id} value={s.value}>{s.label}</option>
             ))}
             <option value="__new__">+ Cadastrar novo…</option>
           </select>
+          {selectedSuggestion && onDeleteSuggestion && (
+            deletingId === selectedSuggestion.id ? (
+              <span style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>Excluir?</span>
+                <button
+                  type="button"
+                  className="danger"
+                  style={{ padding: "2px 8px", fontSize: 11 }}
+                  onClick={async () => {
+                    await onDeleteSuggestion(selectedSuggestion.id);
+                    onChange("");
+                    setDeletingId(null);
+                  }}
+                >Sim</button>
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ padding: "2px 8px", fontSize: 11 }}
+                  onClick={() => setDeletingId(null)}
+                >Não</button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="var-preset-btn"
+                title="Excluir este cadastro"
+                style={{ color: "#dc2626" }}
+                onClick={() => setDeletingId(selectedSuggestion.id)}
+              >✕</button>
+            )
+          )}
           <button type="button" className="var-preset-btn" title="Digitar manualmente" onClick={() => setManualMode(true)}>✏</button>
         </div>
       )}
@@ -393,12 +428,12 @@ function CaseCard({
     try {
       const created = await createPerito({ nome: newPeritoForm.nome, matricula: newPeritoForm.matricula });
       onPeritosChange([...peritos, created]);
-      // Auto-select the new perito
+      const newValues = { ...row.variableValues };
       const peritoVar = template.variables.find((v) => v.key === "nome_perito");
-      if (peritoVar) {
-        const val = `${created.nome} ${created.cargo} Mat. ${created.matricula}`;
-        onUpdate({ variableValues: { ...row.variableValues, [peritoVar.id]: val } });
-      }
+      if (peritoVar) newValues[peritoVar.id] = created.nome;
+      const matVar = template.variables.find((v) => v.key === "matricula_perito");
+      if (matVar) newValues[matVar.id] = created.matricula;
+      onUpdate({ variableValues: newValues });
       setNewPeritoForm(null);
     } catch { /* ignore */ }
   }
@@ -451,20 +486,31 @@ function CaseCard({
       {template.variables.length > 0 && (
         <div className="batch-vars-grid">
           {template.variables.map((v) => {
-            let suggestions: { label: string; value: string }[] | undefined;
+            let suggestions: { label: string; value: string; id: string }[] | undefined;
             let onCreateNew: (() => void) | undefined;
+            let onDeleteSuggestion: ((id: string) => Promise<void>) | undefined;
             if (v.key === "nome_perito" && peritos.length > 0) {
               suggestions = peritos.map((p) => ({
+                id: p.id,
                 label: `${p.nome} — Mat. ${p.matricula}`,
-                value: `${p.nome} ${p.cargo} Mat. ${p.matricula}`,
+                value: p.nome,
               }));
               onCreateNew = () => setNewPeritoForm({ nome: "", matricula: "" });
+              onDeleteSuggestion = async (id) => {
+                await deletePerito(id);
+                onPeritosChange(peritos.filter((p) => p.id !== id));
+              };
             } else if (v.key === "delegacia_requisitante" && delegacias.length > 0) {
               suggestions = delegacias.map((d) => ({
+                id: d.id,
                 label: d.municipio ? `${d.nome} — ${d.municipio}` : d.nome,
                 value: d.nome,
               }));
               onCreateNew = () => setNewDelForm({ nome: "", municipio: "" });
+              onDeleteSuggestion = async (id) => {
+                await deleteDelegacia(id);
+                onDelegaciasChange(delegacias.filter((d) => d.id !== id));
+              };
             }
             return (
               <VarField
@@ -473,10 +519,18 @@ function CaseCard({
                 value={row.variableValues[v.id] ?? ""}
                 suggestions={suggestions}
                 onCreateNew={onCreateNew}
+                onDeleteSuggestion={onDeleteSuggestion}
                 onChange={(val) => {
-                  const patch: Partial<RowState> = {
-                    variableValues: { ...row.variableValues, [v.id]: val },
-                  };
+                  const newValues = { ...row.variableValues, [v.id]: val };
+                  // When selecting a perito by name, auto-fill matricula_perito
+                  if (v.key === "nome_perito") {
+                    const selectedPerito = peritos.find((p) => p.nome === val);
+                    if (selectedPerito) {
+                      const matVar = template.variables.find((v2) => v2.key === "matricula_perito");
+                      if (matVar) newValues[matVar.id] = selectedPerito.matricula;
+                    }
+                  }
+                  const patch: Partial<RowState> = { variableValues: newValues };
                   if (v.key === "rep") {
                     const defaultLabel = `Caso ${index + 1}`;
                     if (row.rowLabel === defaultLabel || row.rowLabel.startsWith("REP ")) {

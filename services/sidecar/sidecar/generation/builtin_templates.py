@@ -65,6 +65,7 @@ def _common_vars() -> list[TemplateVariable]:
         _var("numero_laudo", "Número do Laudo"),
         _var("data_laudo", "Data do Laudo", value_type="date"),
         _var("nome_perito", "Nome do Perito"),
+        _var("matricula_perito", "Matrícula do Perito"),
         _var("delegacia_requisitante", "Delegacia Requisitante"),
         _var("trecho_solicitacao", "Trecho da Solicitação"),
     ]
@@ -84,7 +85,7 @@ def _informatica_extracao_completa() -> tuple[list[TemplateSection], list[Templa
         "Foram calculados os hashes (MD5/SHA-256) dos arquivos de extração para garantir a integridade dos dados, "
         "conforme boas práticas de cadeia de custódia.")
     s_conc = _section("Conclusão", 4, SectionType.CONCLUSAO,
-        "Com base nas análises realizadas, conclui-se que [inserir conclusão pericial].")
+        "Com base nas análises realizadas, conclui-se que [inserir conclusão pericial].\n\n{{nome_perito}} Perito Criminal Mat. {{matricula_perito}}")
 
     sections = [s_hist, s_desc, s_anal, s_integ, s_conc]
     variables = _common_vars() + [
@@ -111,7 +112,7 @@ def _informatica_extracao() -> tuple[list[TemplateSection], list[TemplateVariabl
         "Procedeu-se à extração forense dos dados contidos no dispositivo utilizando ferramenta homologada. "
         "Os dados extraídos foram analisados em busca de elementos relevantes ao caso.")
     s_conc = _section("Conclusão", 3, SectionType.CONCLUSAO,
-        "Com base nas análises realizadas, conclui-se que [inserir conclusão pericial].")
+        "Com base nas análises realizadas, conclui-se que [inserir conclusão pericial].\n\n{{nome_perito}} Perito Criminal Mat. {{matricula_perito}}")
 
     sections = [s_hist, s_desc, s_anal, s_conc]
     variables = _common_vars() + [
@@ -140,7 +141,7 @@ def _informatica_multiplos() -> tuple[list[TemplateSection], list[TemplateVariab
     s_integ = _section("Verificação de Integridade dos Arquivos", 3, SectionType.CUSTOM,
         "Foram calculados os hashes (MD5/SHA-256) dos arquivos de extração para garantir a integridade dos dados.")
     s_conc = _section("Conclusão", 4, SectionType.CONCLUSAO,
-        "Com base nas análises realizadas, conclui-se que [inserir conclusão pericial].")
+        "Com base nas análises realizadas, conclui-se que [inserir conclusão pericial].\n\n{{nome_perito}} Perito Criminal Mat. {{matricula_perito}}")
 
     sections = [s_hist, s_desc, s_anal, s_integ, s_conc]
     variables = _common_vars() + [
