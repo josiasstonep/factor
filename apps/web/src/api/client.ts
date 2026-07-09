@@ -148,6 +148,8 @@ export async function improveRawText(
   provider: string,
   apiKey: string | null,
   model: string | null,
+  caseContext: string | null = null,
+  variableValues: Record<string, string> | null = null,
 ): Promise<ImproveTextResponse> {
   return request<ImproveTextResponse>("/ai/improve-text", {
     method: "POST",
@@ -159,6 +161,8 @@ export async function improveRawText(
       provider,
       api_key: apiKey,
       model,
+      case_context: caseContext,
+      variable_values: variableValues,
     }),
   });
 }

@@ -27,6 +27,14 @@ function sKey(rowId: string, sectionId: string): SectionKey {
 
 const IMPROVABLE_TYPES = new Set(["historia", "descricao", "analise", "conclusao", "custom"]);
 
+function buildVariableContext(row: RowState, tmpl: Template): Record<string, string> {
+  return Object.fromEntries(
+    tmpl.variables
+      .filter((v) => row.variableValues[v.id]?.trim())
+      .map((v) => [v.label, row.variableValues[v.id]]),
+  );
+}
+
 export default function BatchAiImprove({ template, rows, onContinue, onSkip }: Props) {
   const [providers, setProviders] = useState<AiProviderInfo[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("");
@@ -36,6 +44,9 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
   const [sections, setSections] = useState<Record<SectionKey, SectionImproveState>>({});
   const [improvingAll, setImprovingAll] = useState(false);
   const [localRows, setLocalRows] = useState<RowState[]>(rows);
+  const [caseDetails, setCaseDetails] = useState<Record<string, string>>(
+    () => Object.fromEntries(rows.map((r) => [r.rowId, r.caseDetails ?? ""])),
+  );
 
   const sortedSections = template.sections
     .filter((s) => IMPROVABLE_TYPES.has(s.type) && s.is_ai_improvable)
@@ -82,6 +93,8 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
         text, template.id, sectionId, selectedProvider,
         keyRequired ? apiKey || null : null,
         effectiveModel,
+        caseDetails[row.rowId] || null,
+        buildVariableContext(row, template),
       );
       patchState(row.rowId, sectionId, {
         improving: false, aiText: res.ai_text, diff: res.diff, accepted: null,
@@ -186,6 +199,20 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
               {row.rowLabel || `Caso ${localRows.indexOf(row) + 1}`}
             </h4>
           )}
+
+          <div className="case-details-block">
+            <label>
+              Particularidades deste caso
+              <span> (opcional — a IA usará para adaptar os textos sem inventar fatos)</span>
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Ex: celular com tela quebrada, Cellebrite nao suportou extracao logica, apenas chip SIM foi extraido, dois chips instalados..."
+              value={caseDetails[row.rowId] ?? ""}
+              onChange={(e) => setCaseDetails((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
+            />
+          </div>
+
           {sortedSections.map((s) => {
             const st = getState(row.rowId, s.id);
             const text = row.sectionTexts[s.id] ?? "";
@@ -246,7 +273,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
           type="button"
           className="secondary"
           style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}
-          onClick={() => onSkip(localRows)}
+          onClick={() => onSkip(localRows.map((r) => ({ ...r, caseDetails: caseDetails[r.rowId] ?? "" })))}
         >
           Pular IA →
         </button>
@@ -258,7 +285,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
         <button
           type="button"
           className="batch-generate-btn"
-          onClick={() => onContinue(localRows)}
+          onClick={() => onContinue(localRows.map((r) => ({ ...r, caseDetails: caseDetails[r.rowId] ?? "" })))}
         >
           {totalImproved > 0 ? `Continuar com ${totalImproved} melhorias →` : "Continuar sem IA →"}
         </button>

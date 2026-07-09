@@ -1,6 +1,6 @@
 import httpx
 
-from sidecar.ai_providers.base import IMPROVE_USER_TEMPLATE, build_system_prompt, register
+from sidecar.ai_providers.base import build_system_prompt, build_user_message, register
 
 _API_URL = "https://api.anthropic.com/v1/messages"
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
@@ -21,11 +21,13 @@ class _Claude:
         model: str | None,
         section_type: str = "custom",
         expertise_type: str | None = None,
+        case_context: str | None = None,
     ) -> str:
         if not api_key:
             raise ValueError("Claude requires an API key.")
         m = model or _DEFAULT_MODEL
         system_prompt = build_system_prompt(section_type, expertise_type)
+        user_msg = build_user_message(text, case_context)
         async with httpx.AsyncClient(timeout=60.0) as client:
             r = await client.post(
                 _API_URL,
@@ -39,9 +41,7 @@ class _Claude:
                     "max_tokens": 4096,
                     "temperature": 0,
                     "system": system_prompt,
-                    "messages": [
-                        {"role": "user", "content": IMPROVE_USER_TEMPLATE.format(text=text)}
-                    ],
+                    "messages": [{"role": "user", "content": user_msg}],
                 },
             )
             r.raise_for_status()

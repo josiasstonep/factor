@@ -77,6 +77,33 @@ _SECTION_GUIDANCE: dict[str, str] = {
 IMPROVE_USER_TEMPLATE = "TEXTO ORIGINAL:\n{text}"
 
 
+def build_user_message(
+    text: str,
+    case_context: str | None = None,
+    variable_values: dict[str, str] | None = None,
+) -> str:
+    """Build the user-turn message for the LLM, optionally enriched with case context."""
+    parts: list[str] = []
+    if variable_values:
+        lines = "\n".join(f"- {k}: {v}" for k, v in variable_values.items() if v)
+        if lines:
+            parts.append(f"DADOS DO CASO:\n{lines}")
+    if case_context and case_context.strip():
+        parts.append(
+            "PARTICULARIDADES DESTE CASO "
+            "(use para adaptar o texto — não invente fatos além destes):\n"
+            + case_context.strip()
+        )
+    if parts:
+        parts.append(
+            "TEXTO ORIGINAL DA SEÇÃO (melhore mantendo a estrutura; adapte apenas o necessário "
+            "para refletir as particularidades acima):\n" + text
+        )
+    else:
+        parts.append(f"TEXTO ORIGINAL:\n{text}")
+    return "\n\n".join(parts)
+
+
 def build_system_prompt(
     section_type: str = "custom",
     expertise_type: str | None = None,
@@ -108,6 +135,7 @@ class AiProvider(Protocol):
         model: str | None,
         section_type: str = "custom",
         expertise_type: str | None = None,
+        case_context: str | None = None,
     ) -> str: ...
 
 

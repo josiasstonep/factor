@@ -128,6 +128,8 @@ class ImproveTextRequest(BaseModel):
     provider: str
     api_key: str | None = None
     model: str | None = None
+    case_context: str | None = None
+    variable_values: dict[str, str] | None = None
 
 
 class ImproveTextResponse(BaseModel):
@@ -151,6 +153,14 @@ async def improve_raw_text(payload: ImproveTextRequest):
     )
     section_type = template_section.type.value if template_section else "custom"
 
+    # Merge variable_values into case_context so providers receive a single string
+    full_context = payload.case_context or ""
+    if payload.variable_values:
+        var_lines = "\n".join(f"- {k}: {v}" for k, v in payload.variable_values.items() if v)
+        if var_lines:
+            prefix = f"DADOS DO CASO:\n{var_lines}"
+            full_context = f"{prefix}\n\n{full_context}".strip() if full_context else prefix
+
     try:
         ai_text = await provider.improve_text(
             payload.text,
@@ -158,6 +168,7 @@ async def improve_raw_text(payload: ImproveTextRequest):
             payload.model,
             section_type=section_type,
             expertise_type=expertise_type,
+            case_context=full_context or None,
         )
     except Exception as exc:
         raise HTTPException(502, f"Erro ao chamar {payload.provider}: {exc}") from exc

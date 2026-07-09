@@ -1,6 +1,6 @@
 import httpx
 
-from sidecar.ai_providers.base import IMPROVE_USER_TEMPLATE, build_system_prompt, register
+from sidecar.ai_providers.base import build_system_prompt, build_user_message, register
 
 _API_URL = "https://api.openai.com/v1/chat/completions"
 _DEFAULT_MODEL = "gpt-4o-mini"
@@ -21,6 +21,7 @@ class _OpenAI:
         model: str | None,
         section_type: str = "custom",
         expertise_type: str | None = None,
+        case_context: str | None = None,
     ) -> str:
         if not api_key:
             raise ValueError("OpenAI requires an API key.")
@@ -35,7 +36,7 @@ class _OpenAI:
                     "temperature": 0,
                     "messages": [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": IMPROVE_USER_TEMPLATE.format(text=text)},
+                        {"role": "user", "content": build_user_message(text, case_context)},
                     ],
                 },
             )

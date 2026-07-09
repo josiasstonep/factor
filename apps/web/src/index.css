@@ -473,6 +473,44 @@ tr:last-child td { border-bottom: none; }
 }
 .doc-textarea::placeholder { color: #9ca3af; font-style: italic; }
 
+/* Case details block in AI step */
+.case-details-block {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.case-details-block label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0369a1;
+  display: block;
+}
+.case-details-block label span {
+  font-weight: 400;
+  color: #6b7280;
+  margin-left: 4px;
+}
+.case-details-block textarea {
+  width: 100%;
+  margin-top: 6px;
+  font-size: 13px;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+  padding: 7px 9px;
+  resize: vertical;
+  background: #fff;
+  box-sizing: border-box;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.case-details-block textarea:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
 /* Image zone inside document */
 .doc-images { margin-top: 12px; }
 .doc-image-zone {

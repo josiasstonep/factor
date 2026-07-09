@@ -36,6 +36,7 @@ export interface RowState {
   imagePreviewUrls: Record<string, string>;
   uploadingId: string | null;
   sectionsExpanded: boolean;
+  caseDetails: string;
 }
 
 function injectPlaceholders(text: string, variables: TemplateVariable[]): string {
@@ -64,6 +65,7 @@ function createEmptyRow(index: number, template: Template): RowState {
     imagePreviewUrls: {},
     uploadingId: null,
     sectionsExpanded: false,
+    caseDetails: "",
   };
 }
 

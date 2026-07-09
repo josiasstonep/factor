@@ -1,6 +1,6 @@
 import httpx
 
-from sidecar.ai_providers.base import IMPROVE_USER_TEMPLATE, build_system_prompt, register
+from sidecar.ai_providers.base import build_system_prompt, build_user_message, register
 
 _DEFAULT_MODEL = "gemini-2.0-flash"
 _API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -21,6 +21,7 @@ class _Gemini:
         model: str | None,
         section_type: str = "custom",
         expertise_type: str | None = None,
+        case_context: str | None = None,
     ) -> str:
         if not api_key:
             raise ValueError("Gemini requires an API key.")
@@ -35,7 +36,7 @@ class _Gemini:
                     "contents": [
                         {
                             "role": "user",
-                            "parts": [{"text": IMPROVE_USER_TEMPLATE.format(text=text)}],
+                            "parts": [{"text": build_user_message(text, case_context)}],
                         }
                     ],
                     "generationConfig": {"temperature": 0},
