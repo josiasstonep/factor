@@ -95,37 +95,36 @@ def build_user_message(
 ) -> str:
     """
     Build the user-turn message for the LLM.
-    Structure: TEXT BASE first (grounds the model), then particulars, then a clear instruction.
+    Text BASE comes first (grounds the model on what to preserve).
+    Context is wrapped in explicit delimiters so weak models don't echo it.
     """
-    # Text base is always first — grounding the model on what to preserve
-    parts = [f"TEXTO BASE:\n{text}"]
+    # Text base always first — this is what the model must output (adapted)
+    parts = [f"=== TEXTO BASE (reproduza este texto com adaptações mínimas) ===\n{text}\n=== FIM DO TEXTO BASE ==="]
 
-    has_context = False
+    context_lines: list[str] = []
+
     if case_context and case_context.strip():
-        parts.append(
-            "PARTICULARIDADES DESTE CASO "
-            "(adapte SOMENTE o que estas informações exigirem — não invente nada além disto):\n"
-            + case_context.strip()
-        )
-        has_context = True
+        context_lines.append(f"Particularidades: {case_context.strip()}")
 
     if variable_values:
-        lines = "\n".join(f"- {k}: {v}" for k, v in variable_values.items() if v)
-        if lines:
-            parts.append(f"DADOS DISPONÍVEIS DO CASO (use se precisar inserir valores):\n{lines}")
-            has_context = True
+        vals = "; ".join(f"{k}={v}" for k, v in variable_values.items() if v)
+        if vals:
+            context_lines.append(f"Valores disponíveis: {vals}")
 
-    if has_context:
+    if context_lines:
+        ctx_block = "\n".join(context_lines)
         parts.append(
-            "INSTRUÇÃO: Reproduza o TEXTO BASE com adaptações CIRÚRGICAS apenas onde as "
-            "PARTICULARIDADES acima se aplicam. "
-            "Onde não houver correspondência direta, mantenha o texto EXATAMENTE igual."
+            f"=== CONTEXTO DE ADAPTAÇÃO (NÃO reproduza este bloco — use apenas para guiar mudanças) ===\n"
+            f"{ctx_block}\n"
+            f"=== FIM DO CONTEXTO ==="
+        )
+        parts.append(
+            "Reproduza o TEXTO BASE acima com adaptações CIRÚRGICAS apenas onde o CONTEXTO "
+            "exige mudança. Onde não houver correspondência, copie o texto EXATAMENTE. "
+            "NÃO inclua o bloco CONTEXTO no output."
         )
     else:
-        parts.append(
-            "INSTRUÇÃO: Reproduza o TEXTO BASE sem alterações "
-            "(nenhuma particularidade foi fornecida para este caso)."
-        )
+        parts.append("Reproduza o TEXTO BASE acima sem alterações.")
 
     return "\n\n".join(parts)
 
@@ -154,6 +153,12 @@ _PREAMBLE_RE = re.compile(
 _MARKDOWN_RE = re.compile(r"\*{1,2}([^*\n]+)\*{1,2}|_{1,2}([^_\n]+)_{1,2}|`([^`\n]+)`")
 _MD_HEADING_RE = re.compile(r"^#{1,6}\s+", re.MULTILINE)
 _VAR_RE = re.compile(r"\{\{[^}]+\}\}")
+# Patterns that indicate the model echoed the context block instead of adapting the text
+_ECHOED_CONTEXT_RE = re.compile(
+    r"(DADOS DO CASO|CONTEXTO DE ADAPTAÇÃO|TEXTO BASE|FIM DO TEXTO BASE|"
+    r"Valores disponíveis:|Particularidades:|=== FIM DO CONTEXTO)",
+    re.IGNORECASE,
+)
 
 
 def sanitize_ai_output(ai_text: str, original_text: str) -> tuple[str, list[str]]:
@@ -163,6 +168,16 @@ def sanitize_ai_output(ai_text: str, original_text: str) -> tuple[str, list[str]
     """
     warnings: list[str] = []
     text = ai_text.strip()
+
+    # Detect context echo BEFORE any stripping — model reproduced the prompt structure
+    if _ECHOED_CONTEXT_RE.search(text):
+        warnings.append("echoed_context")
+        return original_text, warnings
+
+    # Detect context echo by length: output > 3× original means model echoed context blocks
+    if len(text) > len(original_text) * 3:
+        warnings.append("echoed_context")
+        return original_text, warnings
 
     # Strip preamble ("Aqui está:", "Certamente:", etc.)
     cleaned = _PREAMBLE_RE.sub("", text).strip()
