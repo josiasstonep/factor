@@ -193,10 +193,22 @@ def sanitize_ai_output(ai_text: str, original_text: str) -> tuple[str, list[str]
 
     cleaned = _MARKDOWN_RE.sub(_demd, cleaned)
 
-    # Detect aggressive summarization (output < 50% of original length)
-    if len(cleaned) < len(original_text) * 0.5:
+    # Detect aggressive summarization (output < 72% of original length)
+    if len(cleaned) < len(original_text) * 0.72:
         warnings.append("summarized")
         return original_text, warnings
+
+    # Detect hallucination / rewrite: check word-level preservation.
+    # If the AI output shares < 40% of the original's words (Jaccard-like overlap),
+    # it rewrote the content instead of adapting it — reject.
+    _WORD_RE = re.compile(r"\b\w{4,}\b")  # only words ≥4 chars to skip stopwords
+    orig_words = set(w.lower() for w in _WORD_RE.findall(original_text))
+    out_words = set(w.lower() for w in _WORD_RE.findall(cleaned))
+    if orig_words:
+        overlap = len(orig_words & out_words) / len(orig_words)
+        if overlap < 0.40:
+            warnings.append("hallucinated")
+            return original_text, warnings
 
     # Detect destroyed variables: {{key}} present in original but missing in output
     orig_vars = set(_VAR_RE.findall(original_text))

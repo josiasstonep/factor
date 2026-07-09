@@ -294,8 +294,10 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
                     <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>SUGESTÃO DA IA</div>
                     {st.warnings.length > 0 && (
                       <div style={{ fontSize: 11, color: "#b45309", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "4px 10px", marginBottom: 6 }}>
-                        {st.warnings.includes("summarized") && "⚠ IA resumiu o texto — original restaurado automaticamente. "}
-                        {st.warnings.some((w) => w.startsWith("vars_destroyed")) && "⚠ IA destruiu variáveis — original restaurado automaticamente. "}
+                        {st.warnings.includes("summarized") && "⚠ IA abreviou o texto — original restaurado. "}
+                        {st.warnings.includes("hallucinated") && "⚠ IA reescreveu o conteúdo (alucinação) — original restaurado. "}
+                        {st.warnings.includes("echoed_context") && "⚠ IA ecoou o contexto — original restaurado. "}
+                        {st.warnings.some((w) => w.startsWith("vars_destroyed")) && "⚠ IA destruiu variáveis — original restaurado. "}
                         {st.warnings.includes("preamble_stripped") && "• Prefixo removido automaticamente."}
                       </div>
                     )}
