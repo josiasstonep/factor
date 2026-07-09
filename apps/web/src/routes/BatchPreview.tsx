@@ -188,8 +188,7 @@ export default function BatchPreview({ template, rows, onBack, onGenerated }: Pr
                 {rendered
                   ? (() => {
                       // Pre-process: split lines with trailing underscores off conclusion paragraph
-                      const rawLines = rendered.split("
-");
+                      const rawLines = rendered.split("\n");
                       const lines: string[] = [];
                       for (const rl of rawLines) {
                         const um = rl.match(/^(.*?)(_{4,})\s*$/);
