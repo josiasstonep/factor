@@ -136,4 +136,5 @@ export interface ImproveResponse {
 export interface ImproveTextResponse {
   ai_text: string;
   diff: DiffOp[];
+  warnings: string[];
 }

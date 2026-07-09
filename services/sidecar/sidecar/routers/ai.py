@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from sidecar import repo
-from sidecar.ai_providers.base import all_providers, get_provider
+from sidecar.ai_providers.base import all_providers, get_provider, improve_section_paragraphs
 from sidecar.diffing.word_diff import word_diff
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -135,6 +135,7 @@ class ImproveTextRequest(BaseModel):
 class ImproveTextResponse(BaseModel):
     ai_text: str
     diff: list[dict]
+    warnings: list[str] = []
 
 
 @router.post("/improve-text", response_model=ImproveTextResponse)
@@ -162,7 +163,8 @@ async def improve_raw_text(payload: ImproveTextRequest):
             full_context = f"{prefix}\n\n{full_context}".strip() if full_context else prefix
 
     try:
-        ai_text = await provider.improve_text(
+        ai_text, warns = await improve_section_paragraphs(
+            provider,
             payload.text,
             payload.api_key,
             payload.model,
@@ -174,7 +176,7 @@ async def improve_raw_text(payload: ImproveTextRequest):
         raise HTTPException(502, f"Erro ao chamar {payload.provider}: {exc}") from exc
 
     diff = word_diff(payload.text, ai_text)
-    return ImproveTextResponse(ai_text=ai_text, diff=[op.model_dump() for op in diff])
+    return ImproveTextResponse(ai_text=ai_text, diff=[op.model_dump() for op in diff], warnings=warns)
 
 
 # ─── PATCH /ai/accept ────────────────────────────────────────────────────────

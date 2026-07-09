@@ -17,6 +17,7 @@ interface SectionImproveState {
   diff: DiffOp[] | null;
   accepted: boolean | null;
   error: string | null;
+  warnings: string[];
 }
 
 type SectionKey = `${string}::${string}`; // rowId::sectionId
@@ -73,7 +74,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
 
   function getState(rowId: string, sectionId: string): SectionImproveState {
     return sections[sKey(rowId, sectionId)] ?? {
-      improving: false, aiText: null, diff: null, accepted: null, error: null,
+      improving: false, aiText: null, diff: null, accepted: null, error: null, warnings: [],
     };
   }
 
@@ -98,6 +99,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
       );
       patchState(row.rowId, sectionId, {
         improving: false, aiText: res.ai_text, diff: res.diff, accepted: null,
+        warnings: res.warnings ?? [],
       });
     } catch (err) {
       patchState(row.rowId, sectionId, {
@@ -290,6 +292,13 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
                 {st.diff && st.accepted === null && (
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>SUGESTÃO DA IA</div>
+                    {st.warnings.length > 0 && (
+                      <div style={{ fontSize: 11, color: "#b45309", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "4px 10px", marginBottom: 6 }}>
+                        {st.warnings.includes("summarized") && "⚠ IA resumiu o texto — original restaurado automaticamente. "}
+                        {st.warnings.some((w) => w.startsWith("vars_destroyed")) && "⚠ IA destruiu variáveis — original restaurado automaticamente. "}
+                        {st.warnings.includes("preamble_stripped") && "• Prefixo removido automaticamente."}
+                      </div>
+                    )}
                     <DiffView diff={st.diff} />
                   </div>
                 )}

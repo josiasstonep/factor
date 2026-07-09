@@ -41,19 +41,22 @@ class _Ollama:
     ) -> str:
         m = model or _DEFAULT_MODEL
         system_prompt = build_system_prompt(section_type, expertise_type)
-        prompt = f"{system_prompt}\n\n{build_user_message(text, case_context)}"
+        user_msg = build_user_message(text, case_context)
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(
-                f"{_OLLAMA_BASE}/api/generate",
+                f"{_OLLAMA_BASE}/api/chat",
                 json={
                     "model": m,
-                    "prompt": prompt,
                     "stream": False,
                     "options": {"temperature": 0},
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_msg},
+                    ],
                 },
             )
             r.raise_for_status()
-            return r.json()["response"].strip()
+            return r.json()["message"]["content"].strip()
 
 
 register(_Ollama())
