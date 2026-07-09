@@ -111,6 +111,55 @@ async def improve_section(payload: ImproveRequest):
     )
 
 
+# ─── POST /ai/improve-text ───────────────────────────────────────────────────
+# Improves raw text without needing a stored report — used pre-generation.
+
+
+class ImproveTextRequest(BaseModel):
+    text: str
+    template_id: str | None = None
+    section_id: str | None = None
+    provider: str
+    api_key: str | None = None
+    model: str | None = None
+
+
+class ImproveTextResponse(BaseModel):
+    ai_text: str
+    diff: list[dict]
+
+
+@router.post("/improve-text", response_model=ImproveTextResponse)
+async def improve_raw_text(payload: ImproveTextRequest):
+    provider = get_provider(payload.provider)
+    if provider is None:
+        raise HTTPException(400, f"Provedor '{payload.provider}' não registrado.")
+    if payload.api_key is None and provider.requires_key:
+        raise HTTPException(400, f"Provedor '{payload.provider}' requer uma chave de API.")
+
+    template = repo.get_template(payload.template_id) if payload.template_id else None
+    expertise_type = template.expertise_type if template else None
+    template_section = next(
+        (s for s in (template.sections if template else []) if s.id == payload.section_id),
+        None,
+    )
+    section_type = template_section.type.value if template_section else "custom"
+
+    try:
+        ai_text = await provider.improve_text(
+            payload.text,
+            payload.api_key,
+            payload.model,
+            section_type=section_type,
+            expertise_type=expertise_type,
+        )
+    except Exception as exc:
+        raise HTTPException(502, f"Erro ao chamar {payload.provider}: {exc}") from exc
+
+    diff = word_diff(payload.text, ai_text)
+    return ImproveTextResponse(ai_text=ai_text, diff=[op.model_dump() for op in diff])
+
+
 # ─── PATCH /ai/accept ────────────────────────────────────────────────────────
 
 

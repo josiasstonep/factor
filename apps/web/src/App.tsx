@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { GenerateBatchResponse, Template } from "./api/types";
-import AiImprove from "./routes/AiImprove";
+import BatchAiImprove from "./routes/BatchAiImprove";
 import BatchForm, { type RowState } from "./routes/BatchForm";
 import BatchPreview from "./routes/BatchPreview";
 import GenerationReview from "./routes/GenerationReview";
@@ -9,15 +9,15 @@ import TemplateStructureEditor from "./routes/TemplateStructureEditor";
 import TemplateUpload from "./routes/TemplateUpload";
 
 // "home" is the template-selection screen (not part of the numbered wizard steps)
-type Step = "home" | "upload" | "structure" | "form" | "preview" | "review" | "ai";
+type Step = "home" | "upload" | "structure" | "form" | "ai" | "preview" | "review";
 
 const WIZARD_STEPS: { key: Step; label: string }[] = [
   { key: "upload", label: "1. Upload" },
   { key: "structure", label: "2. Estrutura" },
   { key: "form", label: "3. Dados" },
-  { key: "preview", label: "4. Preview" },
-  { key: "review", label: "5. Resultado" },
-  { key: "ai", label: "6. IA" },
+  { key: "ai", label: "4. IA" },
+  { key: "preview", label: "5. Preview" },
+  { key: "review", label: "6. Resultado" },
 ];
 
 export default function App() {
@@ -45,12 +45,6 @@ export default function App() {
       setStep(key);
     }
   }
-
-  const aiImprovableSectionIds = new Set(
-    (template?.sections ?? [])
-      .filter((s) => s.is_ai_improvable)
-      .map((s) => s.id),
-  );
 
   const showWizard = step !== "home";
 
@@ -126,6 +120,21 @@ export default function App() {
           initialRows={batchRows ?? undefined}
           onPreview={(rows) => {
             setBatchRows(rows);
+            setStep("ai");
+          }}
+        />
+      )}
+
+      {step === "ai" && template && batchRows && (
+        <BatchAiImprove
+          template={template}
+          rows={batchRows}
+          onContinue={(updatedRows) => {
+            setBatchRows(updatedRows);
+            setStep("preview");
+          }}
+          onSkip={(rows) => {
+            setBatchRows(rows);
             setStep("preview");
           }}
         />
@@ -135,7 +144,7 @@ export default function App() {
         <BatchPreview
           template={template}
           rows={batchRows}
-          onBack={() => setStep("form")}
+          onBack={() => setStep("ai")}
           onGenerated={(r) => {
             setResult(r);
             setStep("review");
@@ -147,20 +156,10 @@ export default function App() {
       {step === "review" && result && (
         <GenerationReview
           result={result}
-          hasAiImprovable={aiImprovableSectionIds.size > 0}
-          onImproveWithAi={() => setStep("ai")}
           onStartOver={() => {
             setResult(null);
             setStep("home");
           }}
-        />
-      )}
-
-      {step === "ai" && result && (
-        <AiImprove
-          result={result}
-          aiImprovableSectionIds={aiImprovableSectionIds}
-          onDone={() => setStep("review")}
         />
       )}
     </div>

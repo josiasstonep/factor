@@ -3,6 +3,7 @@ import type {
   Delegacia,
   GenerateBatchResponse,
   ImproveResponse,
+  ImproveTextResponse,
   Perito,
   ReportInputCreate,
   Template,
@@ -132,6 +133,28 @@ export async function improveSection(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       report_id: reportId,
+      section_id: sectionId,
+      provider,
+      api_key: apiKey,
+      model,
+    }),
+  });
+}
+
+export async function improveRawText(
+  text: string,
+  templateId: string,
+  sectionId: string,
+  provider: string,
+  apiKey: string | null,
+  model: string | null,
+): Promise<ImproveTextResponse> {
+  return request<ImproveTextResponse>("/ai/improve-text", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      template_id: templateId,
       section_id: sectionId,
       provider,
       api_key: apiKey,

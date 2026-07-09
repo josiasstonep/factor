@@ -3,12 +3,10 @@ import type { GenerateBatchResponse } from "../api/types";
 
 interface Props {
   result: GenerateBatchResponse;
-  hasAiImprovable: boolean;
-  onImproveWithAi: () => void;
   onStartOver: () => void;
 }
 
-export default function GenerationReview({ result, hasAiImprovable, onImproveWithAi, onStartOver }: Props) {
+export default function GenerationReview({ result, onStartOver }: Props) {
   const { reports, errors, batch_id } = result;
   const hasErrors = errors.length > 0;
   const hasReports = reports.length > 0;
@@ -74,11 +72,6 @@ export default function GenerationReview({ result, hasAiImprovable, onImproveWit
       )}
 
       <div className="actions" style={{ marginTop: 24 }}>
-        {hasAiImprovable && (
-          <button type="button" onClick={onImproveWithAi}>
-            Melhorar com IA
-          </button>
-        )}
         <button type="button" className="secondary" onClick={onStartOver}>
           Novo laudo / novo batch
         </button>
