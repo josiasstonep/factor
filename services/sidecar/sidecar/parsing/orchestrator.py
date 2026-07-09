@@ -59,6 +59,7 @@ _STANDARD_FORENSIC_VARS: list[tuple[str, str]] = [
     ("modelo",                  "Modelo"),
     ("imei1",                   "IMEI 1"),
     ("imei2",                   "IMEI 2"),
+    ("data_recebimento",        "Data de Recebimento"),
     ("nome_perito",             "Nome do Perito"),
     ("matricula_perito",        "Matrícula do Perito"),
     ("delegacia_requisitante",  "Delegacia Requisitante"),

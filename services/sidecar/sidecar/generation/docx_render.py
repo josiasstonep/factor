@@ -353,8 +353,8 @@ def _postprocess_paragraphs(docx_path: Path) -> None:
         elif _HEADING_RE.match(text) or not text:
             # Section headings: enforce compact spacing + explicit Arial
             if _HEADING_RE.match(text):
-                p.paragraph_format.space_before = Pt(12)
-                p.paragraph_format.space_after = Pt(0)
+                p.paragraph_format.space_before = Pt(24)
+                p.paragraph_format.space_after = Pt(6)
                 p.paragraph_format.first_line_indent = Pt(0)
                 p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
                 p.paragraph_format.line_spacing = 1.5

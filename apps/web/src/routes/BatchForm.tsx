@@ -14,6 +14,7 @@ const VARIABLE_HINTS: Record<string, string> = {
   rep: "ex: 28203/2026",
   processo: "ex: 0000152-35.2026.8.17.2250",
   marca: "ex: XIAOMI, SAMSUNG, APPLE",
+  data_recebimento: "ex: 18 de junho de 2026",
   delegacia_requisitante: "ex: 170ª CIRCUNSCRIÇÃO - ITAPETIM - PCPE",
   nome_perito: "ex: Josias Stone Pinheiro Dos Santos",
   trecho_solicitacao: "Cole o trecho da solicitação que aparece entre colchetes no Histórico",

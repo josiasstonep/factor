@@ -64,6 +64,7 @@ def _common_vars() -> list[TemplateVariable]:
         _var("rep", "Número da REP"),
         _var("numero_laudo", "Número do Laudo"),
         _var("data_laudo", "Data do Laudo", value_type="date"),
+        _var("data_recebimento", "Data de Recebimento"),
         _var("nome_perito", "Nome do Perito"),
         _var("matricula_perito", "Matrícula do Perito"),
         _var("delegacia_requisitante", "Delegacia Requisitante"),
