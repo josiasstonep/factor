@@ -20,7 +20,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.15.3",
+    "graceful-fs": "^4.2.11",
     "wait-on": "^8.0.2"
   },
   "dependencies": {
