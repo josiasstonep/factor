@@ -3,80 +3,85 @@ from typing import Protocol, runtime_checkable
 
 # ─── Prompt builder ────────────────────────────────────────────────────────────
 
-_BASE_RULES = (
-    "Regras obrigatórias:\n"
-    "1. Não invente fatos, pessoas, datas, números ou locais — use somente o que está no texto original.\n"
-    "2. Se faltar informação essencial, sinalize com [DADO AUSENTE] no local correspondente.\n"
-    "3. Preserve integralmente: nomes próprios, matrículas, números de processo/REP/vestígio, "
-    "CEPs, coordenadas GPS, hashes MD5/SHA, caminhos de arquivo, IDs de dispositivo (IMEI, ICCID), "
-    "valores monetários, datas e horas.\n"
-    "4. Mantenha o tom técnico-jurídico formal, voz passiva, terceira pessoa.\n"
-    "5. NÃO use markdown: sem **, *, __, #, ` nem listas com - ou *. O texto de saída é parágrafo corrido.\n"
-    "6. NÃO escreva prefixos como 'Aqui está:', 'Texto melhorado:', 'Certamente:', 'Claro:', 'Segue:' etc. "
-    "Comece DIRETAMENTE com o texto.\n"
-    "7. Preserve EXATAMENTE todas as variáveis entre chaves duplas: {{rep}}, {{modelo}}, {{nome_perito}}, etc. "
-    "Não as traduza, não as remova, não as altere.\n"
-    "8. Retorne APENAS o texto melhorado, sem introduções, comentários ou marcações extra.\n"
+# Core mandate — placed FIRST in the system prompt so weak models read it before anything else.
+# Philosophy: the AI is a SURGICAL ADAPTER, not an improver. The template text is already
+# correct; the only job is to reflect case-specific details where they apply.
+_CORE_MANDATE = (
+    "Você é um adaptador cirúrgico de laudos periciais. "
+    "Sua ÚNICA tarefa: reproduzir o TEXTO BASE fornecido com alterações MÍNIMAS e CIRÚRGICAS "
+    "apenas onde as PARTICULARIDADES DO CASO o exigirem. "
+    "NÃO melhore estilo. NÃO melhore gramática. NÃO melhore fluência. "
+    "NÃO resuma. NÃO expanda. NÃO reestruture. "
+    "O texto base já está correto — preserve-o integralmente, alterando somente o que "
+    "as particularidades informadas tornam necessário."
 )
 
+_BASE_RULES = (
+    "REGRAS ABSOLUTAS:\n"
+    "1. Onde nenhuma particularidade se aplicar, reproduza o parágrafo SEM QUALQUER ALTERAÇÃO.\n"
+    "2. NÃO invente fatos — use somente o que está nas particularidades fornecidas.\n"
+    "3. Preserve integralmente: nomes, matrículas, REP, IMEI, hashes, datas, caminhos e todas "
+    "as variáveis {{chave}}. Não as traduza, não as remova, não as altere.\n"
+    "4. NÃO use markdown: sem **, *, __, #, `. Texto corrido, idêntico ao estilo do original.\n"
+    "5. NÃO escreva prefixos ('Aqui está:', 'Segue:', 'Certamente:', etc.). "
+    "Comece DIRETAMENTE com o texto adaptado.\n"
+    "6. Retorne APENAS o texto — sem comentários, sem explicações das mudanças feitas.\n"
+)
+
+# Expertise context gives the model vocabulary knowledge but is NOT the framing identity.
 _EXPERTISE_CONTEXT: dict[str, str] = {
     "informatica_extracao_completa": (
-        "Você é Perito Criminal especialista em Informática Forense. "
-        "Domina análise de dispositivos móveis, extração de dados com ferramentas forenses "
-        "(Cellebrite UFED, MSAB XRY, Oxygen Forensic) e verificação de integridade por hash. "
-        "Use vocabulário técnico forense computacional (extração lógica, física, chip-off, "
-        "hash de verificação, cadeia de custódia digital).\n"
+        "Vocabulário do domínio: extração lógica, física, chip-off; Cellebrite UFED, MSAB XRY, "
+        "Oxygen Forensic; hash MD5/SHA-256; cadeia de custódia digital; IMEI, ICCID."
     ),
     "informatica_extracao": (
-        "Você é Perito Criminal especialista em Informática Forense. "
-        "Domina extração de dados de dispositivos digitais e documentação técnica pericial. "
-        "Use vocabulário forense computacional preciso.\n"
+        "Vocabulário do domínio: extração forense de dispositivos digitais; ferramentas forenses "
+        "homologadas; cadeia de custódia; hash de integridade."
     ),
     "informatica_multiplos": (
-        "Você é Perito Criminal especialista em Informática Forense com experiência em "
-        "perícias envolvendo múltiplos dispositivos. Mantenha rigor na identificação de cada "
-        "vestígio (Vestígio 01, Vestígio 02, etc.) e nos seus respectivos resultados.\n"
+        "Vocabulário do domínio: múltiplos vestígios (Vestígio 01, Vestígio 02...); "
+        "extração forense individual por dispositivo; hash por vestígio."
     ),
     "homicidio": (
-        "Você é Perito Criminal especialista em Local de Crime (homicídio). "
-        "Domina criminalística, tanatologia forense, balística e documentação de vestígios. "
-        "Use terminologia técnica pericial (posição do corpo, padrão de manchas de sangue, "
-        "projétil, estojos, numeração de vestígios).\n"
+        "Vocabulário do domínio: local de crime; tanatologia forense; balística; "
+        "manchas de sangue; projétil; estojos; numeração de vestígios."
     ),
     "transito": (
-        "Você é Perito Criminal especialista em Acidentes de Trânsito. "
-        "Domina dinâmica veicular, análise de danos, marcas de frenagem e documentação "
-        "técnica de sinistros. Use terminologia técnica de engenharia veicular e criminalística.\n"
+        "Vocabulário do domínio: dinâmica veicular; marcas de frenagem; danos estruturais; "
+        "ponto de impacto; análise de sinistro."
     ),
 }
 
 _DEFAULT_EXPERTISE_CONTEXT = (
-    "Você é Perito Criminal especialista em elaboração de laudos periciais. "
-    "Use vocabulário técnico-jurídico formal e preciso.\n"
+    "Vocabulário do domínio: laudos periciais técnico-jurídicos; terminologia forense formal."
 )
 
+# Section guidance tells the model WHAT can legitimately change in each section type.
 _SECTION_GUIDANCE: dict[str, str] = {
     "historia": (
-        "Esta seção é o Histórico/Relato. Melhore a fluência narrativa mantendo a "
-        "ordem cronológica dos fatos e todas as referências a autoridades, ofícios e requisições.\n"
+        "SEÇÃO: Histórico. O que PODE mudar: referências à delegacia requisitante, ofício, "
+        "data de recebimento e trecho de solicitação específico deste caso. "
+        "O restante permanece idêntico."
     ),
     "descricao": (
-        "Esta seção é a Descrição do Material. Melhore a clareza descritiva. "
-        "Preserve todas as características físicas (marca, modelo, cor, estado de conservação, "
-        "número de série, lacres) exatamente como constam no original.\n"
+        "SEÇÃO: Descrição do Material. O que PODE mudar: estado físico específico do vestígio "
+        "(ex.: conector quebrado, tela trincada, lacre ausente, número de chips). "
+        "O restante permanece idêntico."
     ),
     "analise": (
-        "Esta seção é a Análise Pericial. Melhore o encadeamento lógico entre evidências e "
-        "conclusões parciais. Não acrescente interpretações além das explicitamente presentes "
-        "no texto original.\n"
+        "SEÇÃO: Análise Pericial. O que PODE mudar: o que foi ou não possível realizar "
+        "neste caso específico (ex.: extração lógica impossível por tela inoperante; "
+        "apenas chip SIM extraído; Cellebrite não suportou o modelo). "
+        "O restante permanece idêntico."
     ),
     "conclusao": (
-        "Esta seção é a Conclusão. Melhore a precisão e clareza das afirmações conclusivas. "
-        "Não acrescente conclusões além do que as evidências descritas nas seções anteriores sustentam. "
-        "Mantenha linguagem afirmativa técnica ('constata-se', 'verifica-se', 'concluiu-se').\n"
+        "SEÇÃO: Conclusão. O que PODE mudar: afirmações que dependem do resultado específico "
+        "deste caso (ex.: dispositivo encaminhado à delegacia X; extração parcial realizada). "
+        "O restante permanece idêntico."
     ),
     "custom": (
-        "Melhore a clareza e fluência do texto pericial preservando todos os fatos e dados técnicos.\n"
+        "Adapte APENAS o que for diretamente mencionado nas particularidades do caso. "
+        "O restante permanece idêntico."
     ),
 }
 
@@ -88,25 +93,40 @@ def build_user_message(
     case_context: str | None = None,
     variable_values: dict[str, str] | None = None,
 ) -> str:
-    """Build the user-turn message for the LLM, optionally enriched with case context."""
-    parts: list[str] = []
-    if variable_values:
-        lines = "\n".join(f"- {k}: {v}" for k, v in variable_values.items() if v)
-        if lines:
-            parts.append(f"DADOS DO CASO:\n{lines}")
+    """
+    Build the user-turn message for the LLM.
+    Structure: TEXT BASE first (grounds the model), then particulars, then a clear instruction.
+    """
+    # Text base is always first — grounding the model on what to preserve
+    parts = [f"TEXTO BASE:\n{text}"]
+
+    has_context = False
     if case_context and case_context.strip():
         parts.append(
             "PARTICULARIDADES DESTE CASO "
-            "(use para adaptar o texto — não invente fatos além destes):\n"
+            "(adapte SOMENTE o que estas informações exigirem — não invente nada além disto):\n"
             + case_context.strip()
         )
-    if parts:
+        has_context = True
+
+    if variable_values:
+        lines = "\n".join(f"- {k}: {v}" for k, v in variable_values.items() if v)
+        if lines:
+            parts.append(f"DADOS DISPONÍVEIS DO CASO (use se precisar inserir valores):\n{lines}")
+            has_context = True
+
+    if has_context:
         parts.append(
-            "TEXTO ORIGINAL DA SEÇÃO (melhore mantendo a estrutura; adapte apenas o necessário "
-            "para refletir as particularidades acima):\n" + text
+            "INSTRUÇÃO: Reproduza o TEXTO BASE com adaptações CIRÚRGICAS apenas onde as "
+            "PARTICULARIDADES acima se aplicam. "
+            "Onde não houver correspondência direta, mantenha o texto EXATAMENTE igual."
         )
     else:
-        parts.append(f"TEXTO ORIGINAL:\n{text}")
+        parts.append(
+            "INSTRUÇÃO: Reproduza o TEXTO BASE sem alterações "
+            "(nenhuma particularidade foi fornecida para este caso)."
+        )
+
     return "\n\n".join(parts)
 
 
@@ -115,8 +135,9 @@ def build_system_prompt(
     expertise_type: str | None = None,
 ) -> str:
     expertise_ctx = _EXPERTISE_CONTEXT.get(expertise_type or "", _DEFAULT_EXPERTISE_CONTEXT)
-    section_guidance = _SECTION_GUIDANCE.get(section_type, _SECTION_GUIDANCE["custom"])
-    return f"{expertise_ctx}{section_guidance}\n{_BASE_RULES}"
+    section_hint = _SECTION_GUIDANCE.get(section_type, _SECTION_GUIDANCE["custom"])
+    # Core mandate first (most important for weak models), then domain context, then hard rules
+    return f"{_CORE_MANDATE}\n\n{section_hint}\n\n{expertise_ctx}\n\n{_BASE_RULES}"
 
 
 # Legacy constant kept for backward compat — points to generic prompt
