@@ -44,6 +44,20 @@ class GeneratedReportRow(Base):
     data = Column(Text, nullable=False)
 
 
+class PeritoRow(Base):
+    __tablename__ = "peritos"
+
+    id = Column(String, primary_key=True)
+    data = Column(Text, nullable=False)  # JSON-serialized Perito
+
+
+class DelegaciaRow(Base):
+    __tablename__ = "delegacias"
+
+    id = Column(String, primary_key=True)
+    data = Column(Text, nullable=False)  # JSON-serialized Delegacia
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
 

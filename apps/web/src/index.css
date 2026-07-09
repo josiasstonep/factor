@@ -678,6 +678,23 @@ tr:last-child td { border-bottom: none; }
   outline: none !important;
 }
 
+/* Inline textarea for editing section text directly in preview */
+.doc-textarea {
+  width: 100%;
+  min-height: 160px;
+  font-family: "Arial", sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 8px 10px;
+  border: 2px solid #93c5fd;
+  border-radius: 4px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  color: #111;
+  background: #f0f9ff;
+}
+
 /* Images block inside preview */
 .preview-images {
   margin-top: 16px;
@@ -1136,4 +1153,34 @@ tr:last-child td { border-bottom: none; }
 .batch-generate-btn:hover:not(:disabled) {
   background: #e5e7eb !important;
   color: var(--c-primary) !important;
+}
+
+/* ── Entity picker (perito / delegacia dropdown) ────────────────────────── */
+.var-suggestions-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.var-suggestions-row select {
+  flex: 1;
+}
+
+/* ── Inline new-entity form ─────────────────────────────────────────────── */
+.entity-new-form {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.entity-new-form strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }

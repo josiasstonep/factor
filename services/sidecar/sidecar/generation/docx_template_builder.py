@@ -3,6 +3,8 @@ from pathlib import Path
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 from docx.shared import Cm, Mm, Pt
 
 from sidecar.generation.context_keys import caption_key, image_key, section_key
@@ -79,6 +81,67 @@ def _add_header_image(doc: Document, image_path: str) -> None:
     run.add_picture(image_path, width=sec.page_width)  # full A4 width (210mm)
 
 
+def _add_page_numbers(doc: Document) -> None:
+    """Add centered 'Página X de Y' to the footer, on a new paragraph after the image (if any)."""
+    sec = doc.sections[0]
+    footer = sec.footer
+
+    # Add a new paragraph for page numbers (after footer image paragraph)
+    p = doc.add_paragraph() if False else footer.add_paragraph()  # footer.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_after = Pt(0)
+
+    def _add_field(run_elem, fld_char_type: str | None = None, instr: str | None = None):
+        if fld_char_type:
+            fc = OxmlElement("w:fldChar")
+            fc.set(qn("w:fldCharType"), fld_char_type)
+            run_elem.append(fc)
+        if instr:
+            it = OxmlElement("w:instrText")
+            it.set(qn("xml:space"), "preserve")
+            it.text = instr
+            run_elem.append(it)
+
+    run = p.add_run("Página ")
+    run.font.name = "Arial"
+    run.font.size = Pt(9)
+
+    r_page = OxmlElement("w:r")
+    rpr = OxmlElement("w:rPr")
+    fn = OxmlElement("w:rFonts")
+    fn.set(qn("w:ascii"), "Arial")
+    fn.set(qn("w:hAnsi"), "Arial")
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), "18")  # 9pt = 18 half-points
+    rpr.append(fn)
+    rpr.append(sz)
+    r_page.append(rpr)
+    _add_field(r_page, "begin")
+    _add_field(r_page, instr=" PAGE ")
+    _add_field(r_page, "end")
+    p.runs[-1]._r.addnext(r_page)
+
+    run2 = p.add_run(" de ")
+    run2.font.name = "Arial"
+    run2.font.size = Pt(9)
+
+    r_pages = OxmlElement("w:r")
+    rpr2 = OxmlElement("w:rPr")
+    fn2 = OxmlElement("w:rFonts")
+    fn2.set(qn("w:ascii"), "Arial")
+    fn2.set(qn("w:hAnsi"), "Arial")
+    sz2 = OxmlElement("w:sz")
+    sz2.set(qn("w:val"), "18")
+    rpr2.append(fn2)
+    rpr2.append(sz2)
+    r_pages.append(rpr2)
+    _add_field(r_pages, "begin")
+    _add_field(r_pages, instr=" NUMPAGES ")
+    _add_field(r_pages, "end")
+    run2._r.addnext(r_pages)
+
+
 def _add_footer_image(doc: Document, image_path: str) -> None:
     sec = doc.sections[0]
     footer = sec.footer
@@ -149,6 +212,8 @@ def build_skeleton(template: Template, output_path: Path) -> Path:
 
     if template.footer_image_path:
         _add_footer_image(doc, template.footer_image_path)
+
+    _add_page_numbers(doc)
 
     # Group image placeholders by section_id; images without section_id go at the end
     images_by_section: dict[str, list[TemplateImagePlaceholder]] = defaultdict(list)

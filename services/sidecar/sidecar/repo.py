@@ -3,7 +3,9 @@ own SQLite table (queryable by id/status), keeping the nested pydantic models
 as the single source of truth for shape instead of a separate ORM schema."""
 
 from sidecar.db import (
+    DelegaciaRow,
     GeneratedReportRow,
+    PeritoRow,
     ReportInputRow,
     SessionLocal,
     TemplateRow,
@@ -11,6 +13,7 @@ from sidecar.db import (
     to_json,
 )
 from sidecar.models.generated_report import GeneratedReport
+from sidecar.models.perito import Delegacia, Perito
 from sidecar.models.report_input import ReportInput
 from sidecar.models.template import Template
 
@@ -118,3 +121,63 @@ def list_generated_reports_by_batch(batch_id: str) -> list[GeneratedReport]:
     with SessionLocal() as session:
         rows = session.query(GeneratedReportRow).filter_by(batch_id=batch_id).all()
         return [GeneratedReport.model_validate(from_json(r.data)) for r in rows]
+
+
+# ─── Peritos ──────────────────────────────────────────────────────────────────
+
+
+def save_perito(perito: Perito) -> None:
+    with SessionLocal() as session:
+        row = session.get(PeritoRow, perito.id)
+        payload = to_json(perito.model_dump(mode="json"))
+        if row:
+            row.data = payload
+        else:
+            session.add(PeritoRow(id=perito.id, data=payload))
+        session.commit()
+
+
+def list_peritos() -> list[Perito]:
+    with SessionLocal() as session:
+        rows = session.query(PeritoRow).all()
+        return [Perito.model_validate(from_json(r.data)) for r in rows]
+
+
+def delete_perito(perito_id: str) -> bool:
+    with SessionLocal() as session:
+        row = session.get(PeritoRow, perito_id)
+        if not row:
+            return False
+        session.delete(row)
+        session.commit()
+        return True
+
+
+# ─── Delegacias ───────────────────────────────────────────────────────────────
+
+
+def save_delegacia(delegacia: Delegacia) -> None:
+    with SessionLocal() as session:
+        row = session.get(DelegaciaRow, delegacia.id)
+        payload = to_json(delegacia.model_dump(mode="json"))
+        if row:
+            row.data = payload
+        else:
+            session.add(DelegaciaRow(id=delegacia.id, data=payload))
+        session.commit()
+
+
+def list_delegacias() -> list[Delegacia]:
+    with SessionLocal() as session:
+        rows = session.query(DelegaciaRow).all()
+        return [Delegacia.model_validate(from_json(r.data)) for r in rows]
+
+
+def delete_delegacia(delegacia_id: str) -> bool:
+    with SessionLocal() as session:
+        row = session.get(DelegaciaRow, delegacia_id)
+        if not row:
+            return False
+        session.delete(row)
+        session.commit()
+        return True

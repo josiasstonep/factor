@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteTemplate, getTemplate, listTemplates, parseTemplate, renameTemplate } from "../api/client";
+import { createBuiltinTemplate, deleteTemplate, getTemplate, listBuiltinTypes, listTemplates, parseTemplate, renameTemplate } from "../api/client";
 import type { Template } from "../api/types";
 
 interface Props {
   onSelect: (template: Template) => void;
   onUploadNew: (template: Template) => void;
 }
+
+interface BuiltinType { key: string; label: string; }
+
+const BUILTIN_ICONS: Record<string, string> = {
+  informatica_extracao_completa: "📱",
+  informatica_extracao: "📲",
+  informatica_multiplos: "📱📱",
+  homicidio: "🔍",
+  transito: "🚗",
+};
 
 export default function TemplateList({ onSelect, onUploadNew }: Props) {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -16,6 +26,9 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
   const [renameValue, setRenameValue] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showBuiltinModal, setShowBuiltinModal] = useState(false);
+  const [builtinTypes, setBuiltinTypes] = useState<BuiltinType[]>([]);
+  const [creatingBuiltin, setCreatingBuiltin] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -23,6 +36,7 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
       .then(setTemplates)
       .catch(() => setTemplates([]))
       .finally(() => setLoading(false));
+    listBuiltinTypes().then(setBuiltinTypes).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -84,6 +98,19 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
     }
   }
 
+  async function handleCreateBuiltin(key: string) {
+    setCreatingBuiltin(key);
+    setError(null);
+    try {
+      const template = await createBuiltinTemplate(key);
+      setShowBuiltinModal(false);
+      onUploadNew(template);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao criar template.");
+      setCreatingBuiltin(null);
+    }
+  }
+
   async function confirmDelete(id: string) {
     try {
       await deleteTemplate(id);
@@ -100,7 +127,48 @@ export default function TemplateList({ onSelect, onUploadNew }: Props) {
 
   return (
     <div className="card">
-      <h2>Templates de Laudo</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <h2 style={{ margin: 0 }}>Templates de Laudo</h2>
+        {builtinTypes.length > 0 && (
+          <button type="button" style={{ fontSize: 13, padding: "5px 14px" }} onClick={() => setShowBuiltinModal(true)}>
+            + Novo template
+          </button>
+        )}
+      </div>
+
+      {/* ── Builtin template modal ── */}
+      {showBuiltinModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: 28, maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <h3 style={{ margin: "0 0 6px" }}>Criar template por tipo de perícia</h3>
+            <p style={{ margin: "0 0 18px", fontSize: 13, color: "#6b7280" }}>
+              Selecione o tipo de perícia. O template será criado com seções e variáveis padrão que você pode ajustar.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {builtinTypes.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className="secondary"
+                  disabled={!!creatingBuiltin}
+                  onClick={() => void handleCreateBuiltin(t.key)}
+                  style={{ textAlign: "left", padding: "10px 14px", fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}
+                >
+                  <span style={{ fontSize: 20 }}>{BUILTIN_ICONS[t.key] ?? "📄"}</span>
+                  <span>
+                    {creatingBuiltin === t.key ? "Criando…" : t.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div style={{ marginTop: 16, textAlign: "right" }}>
+              <button type="button" className="secondary" onClick={() => { setShowBuiltinModal(false); setCreatingBuiltin(null); }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <div className="error-banner">{error}</div>}
 

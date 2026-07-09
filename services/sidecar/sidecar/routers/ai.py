@@ -74,9 +74,22 @@ async def improve_section(payload: ImproveRequest):
     if payload.api_key is None and provider.requires_key:
         raise HTTPException(400, f"Provedor '{payload.provider}' requer uma chave de API.")
 
+    # Resolve section_type and expertise_type for specialized prompt
+    template = repo.get_template(report.template_id)
+    expertise_type = template.expertise_type if template else None
+    template_section = next(
+        (s for s in (template.sections if template else []) if s.id == payload.section_id),
+        None,
+    )
+    section_type = template_section.type.value if template_section else "custom"
+
     try:
         ai_text = await provider.improve_text(
-            section.original_text, payload.api_key, payload.model
+            section.original_text,
+            payload.api_key,
+            payload.model,
+            section_type=section_type,
+            expertise_type=expertise_type,
         )
     except Exception as exc:
         raise HTTPException(502, f"Erro ao chamar {payload.provider}: {exc}") from exc

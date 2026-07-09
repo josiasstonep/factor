@@ -119,7 +119,7 @@ def render_docx(
     for placeholder in template.image_placeholders:
         images = [img for img in report_input.images if img.placeholder_id == placeholder.id]
         if images:
-            context[image_key(placeholder)] = InlineImage(tpl, images[0].file_path, width=Mm(120))
+            context[image_key(placeholder)] = InlineImage(tpl, images[0].file_path, width=Mm(170))
         else:
             context[image_key(placeholder)] = ""
 

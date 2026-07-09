@@ -62,6 +62,7 @@ class Template(BaseModel):
     docx_skeleton_path: Optional[str] = None
     header_image_path: Optional[str] = None
     footer_image_path: Optional[str] = None
+    expertise_type: Optional[str] = None
 
 
 class TemplateUpdate(BaseModel):

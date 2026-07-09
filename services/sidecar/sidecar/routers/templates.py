@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from sidecar import repo
 from sidecar.config import TEMPLATES_DIR, UPLOADS_DIR
+from sidecar.generation.builtin_templates import get_builtin_template, list_builtin_types
 from sidecar.generation.docx_template_builder import build_skeleton
 from sidecar.models.template import Template, TemplateUpdate, TemplateVariable
 from sidecar.parsing.header_footer_extract import extract_header_footer
@@ -80,6 +81,21 @@ async def parse_template(file: UploadFile):
 @router.get("", response_model=list[Template])
 async def list_templates():
     return repo.list_templates()
+
+
+@router.get("/builtin/types")
+async def get_builtin_types():
+    return list_builtin_types()
+
+
+@router.post("/builtin/{expertise_type}", response_model=Template)
+async def create_builtin_template(expertise_type: str):
+    try:
+        template = get_builtin_template(expertise_type)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    repo.save_template(template)
+    return template
 
 
 @router.get("/{template_id}", response_model=Template)

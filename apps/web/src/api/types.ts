@@ -44,6 +44,20 @@ export interface Template {
   docx_skeleton_path: string | null;
   header_image_path: string | null;
   footer_image_path: string | null;
+  expertise_type: string | null;
+}
+
+export interface Perito {
+  id: string;
+  nome: string;
+  matricula: string;
+  cargo: string;
+}
+
+export interface Delegacia {
+  id: string;
+  nome: string;
+  municipio: string;
 }
 
 export interface ReportInputVariableValue {

@@ -1,6 +1,6 @@
 import httpx
 
-from sidecar.ai_providers.base import IMPROVE_SYSTEM_PROMPT, IMPROVE_USER_TEMPLATE, register
+from sidecar.ai_providers.base import IMPROVE_USER_TEMPLATE, build_system_prompt, register
 
 _API_URL = "https://api.groq.com/openai/v1/chat/completions"
 _DEFAULT_MODEL = "llama-3.1-8b-instant"
@@ -14,18 +14,27 @@ class _Groq:
     async def is_available(self) -> bool:
         return True
 
-    async def improve_text(self, text: str, api_key: str | None, model: str | None) -> str:
+    async def improve_text(
+        self,
+        text: str,
+        api_key: str | None,
+        model: str | None,
+        section_type: str = "custom",
+        expertise_type: str | None = None,
+    ) -> str:
         if not api_key:
             raise ValueError("Groq requires an API key.")
         m = model or _DEFAULT_MODEL
+        system_prompt = build_system_prompt(section_type, expertise_type)
         async with httpx.AsyncClient(timeout=60.0) as client:
             r = await client.post(
                 _API_URL,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
                     "model": m,
+                    "temperature": 0,
                     "messages": [
-                        {"role": "system", "content": IMPROVE_SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": IMPROVE_USER_TEMPLATE.format(text=text)},
                     ],
                 },

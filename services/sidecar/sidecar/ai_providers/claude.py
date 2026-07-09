@@ -1,6 +1,6 @@
 import httpx
 
-from sidecar.ai_providers.base import IMPROVE_SYSTEM_PROMPT, IMPROVE_USER_TEMPLATE, register
+from sidecar.ai_providers.base import IMPROVE_USER_TEMPLATE, build_system_prompt, register
 
 _API_URL = "https://api.anthropic.com/v1/messages"
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
@@ -14,10 +14,18 @@ class _Claude:
     async def is_available(self) -> bool:
         return True
 
-    async def improve_text(self, text: str, api_key: str | None, model: str | None) -> str:
+    async def improve_text(
+        self,
+        text: str,
+        api_key: str | None,
+        model: str | None,
+        section_type: str = "custom",
+        expertise_type: str | None = None,
+    ) -> str:
         if not api_key:
             raise ValueError("Claude requires an API key.")
         m = model or _DEFAULT_MODEL
+        system_prompt = build_system_prompt(section_type, expertise_type)
         async with httpx.AsyncClient(timeout=60.0) as client:
             r = await client.post(
                 _API_URL,
@@ -29,7 +37,8 @@ class _Claude:
                 json={
                     "model": m,
                     "max_tokens": 4096,
-                    "system": IMPROVE_SYSTEM_PROMPT,
+                    "temperature": 0,
+                    "system": system_prompt,
                     "messages": [
                         {"role": "user", "content": IMPROVE_USER_TEMPLATE.format(text=text)}
                     ],

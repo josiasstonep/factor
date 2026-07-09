@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { uploadImage } from "../api/client";
+import { createDelegacia, createPerito, listDelegacias, listPeritos, uploadImage } from "../api/client";
 import { mergeStandardVars } from "../utils/standardVars";
 import { deletePreset, getPresets, savePreset } from "../utils/varPresets";
-import type { Template, TemplateVariable } from "../api/types";
+import type { Delegacia, Perito, Template, TemplateVariable } from "../api/types";
 
 const SIDECAR_PORT = 8731;
 
@@ -98,6 +98,13 @@ export default function BatchForm({ template, initialRows, onPreview }: Props) {
   const effectiveTemplate = { ...template, variables: mergeStandardVars(template.variables) };
   const [rows, setRows] = useState<RowState[]>(initialRows ?? [createEmptyRow(0, effectiveTemplate)]);
   const [error, setError] = useState<string | null>(null);
+  const [peritos, setPeritos] = useState<Perito[]>([]);
+  const [delegacias, setDelegacias] = useState<Delegacia[]>([]);
+
+  useEffect(() => {
+    listPeritos().then(setPeritos).catch(() => {});
+    listDelegacias().then(setDelegacias).catch(() => {});
+  }, []);
 
   const sortedSections = effectiveTemplate.sections.slice().sort((a, b) => a.order - b.order);
 
@@ -166,6 +173,10 @@ export default function BatchForm({ template, initialRows, onPreview }: Props) {
             imagesBySectionId={imagesBySectionId}
             orphanImages={orphanImages}
             allImages={allImages}
+            peritos={peritos}
+            delegacias={delegacias}
+            onPeritosChange={setPeritos}
+            onDelegaciasChange={setDelegacias}
             onUpdate={(patch) => updateRow(row.rowId, patch)}
             onRemove={() => removeRow(row.rowId)}
             onImageChange={(pid, file) => handleImageChange(row.rowId, pid, file)}
@@ -203,10 +214,14 @@ function VarField({
   variable,
   value,
   onChange,
+  suggestions,
+  onCreateNew,
 }: {
   variable: TemplateVariable;
   value: string;
   onChange: (val: string) => void;
+  suggestions?: { label: string; value: string }[];
+  onCreateNew?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [presets, setPresets] = useState<string[]>(() => getPresets(variable.key));
@@ -243,48 +258,71 @@ function VarField({
   }
 
   const isLong = LONG_TEXT_KEYS.has(variable.key);
+  const [manualMode, setManualMode] = useState(!suggestions?.length);
+  const hasSuggestions = suggestions && suggestions.length > 0;
 
   return (
     <div ref={containerRef} className={`batch-var-field${isLong ? " batch-var-field--long" : ""}`} style={{ position: "relative" }}>
       <label className="batch-var-label">{variable.label}</label>
-      <div className="var-input-row">
-        {isLong ? (
-          <textarea
-            className="batch-var-input batch-var-textarea"
-            value={value}
-            placeholder={VARIABLE_HINTS[variable.key] ?? ""}
-            rows={3}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        ) : (
-          <input
-            type="text"
+      {hasSuggestions && !manualMode && (
+        <div className="var-suggestions-row">
+          <select
             className="batch-var-input"
             value={value}
-            placeholder={VARIABLE_HINTS[variable.key] ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        )}
-        <button
-          type="button"
-          className="var-preset-btn"
-          title="Salvar como atalho"
-          onClick={handleSave}
-          disabled={!value.trim()}
-        >
-          ★
-        </button>
-        {presets.length > 0 && (
+            onChange={(e) => {
+              if (e.target.value === "__new__") { onCreateNew?.(); }
+              else { onChange(e.target.value); }
+            }}
+          >
+            <option value="">— selecionar —</option>
+            {suggestions.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+            <option value="__new__">+ Cadastrar novo…</option>
+          </select>
+          <button type="button" className="var-preset-btn" title="Digitar manualmente" onClick={() => setManualMode(true)}>✏</button>
+        </div>
+      )}
+      {(!hasSuggestions || manualMode) && (
+        <div className="var-input-row">
+          {isLong ? (
+            <textarea
+              className="batch-var-input batch-var-textarea"
+              value={value}
+              placeholder={VARIABLE_HINTS[variable.key] ?? ""}
+              rows={3}
+              onChange={(e) => onChange(e.target.value)}
+            />
+          ) : (
+            <input
+              type="text"
+              className="batch-var-input"
+              value={value}
+              placeholder={VARIABLE_HINTS[variable.key] ?? ""}
+              onChange={(e) => onChange(e.target.value)}
+            />
+          )}
           <button
             type="button"
-            className="var-preset-btn var-preset-open-btn"
-            title="Ver atalhos salvos"
-            onClick={() => setOpen((o) => !o)}
+            className="var-preset-btn"
+            title="Salvar como atalho"
+            onClick={handleSave}
+            disabled={!value.trim()}
           >
-            ▾
+            ★
           </button>
-        )}
-      </div>
+          {presets.length > 0 && (
+            <button
+              type="button"
+              className="var-preset-btn var-preset-open-btn"
+              title="Ver atalhos salvos"
+              onClick={() => setOpen((o) => !o)}
+            >
+              ▾
+            </button>
+          )}
+        </div>
+      )}
       {open && presets.length > 0 && (
         <div className="var-preset-dropdown">
           {presets.map((p) => (
@@ -302,6 +340,9 @@ function VarField({
           ))}
         </div>
       )}
+      {(!hasSuggestions || manualMode) && hasSuggestions && (
+        <button type="button" className="var-preset-btn" style={{ marginTop: 2, fontSize: 10 }} onClick={() => setManualMode(false)}>← lista</button>
+      )}
     </div>
   );
 }
@@ -317,6 +358,10 @@ interface CaseCardProps {
   imagesBySectionId: Record<string, Template["image_placeholders"]>;
   orphanImages: Template["image_placeholders"];
   allImages: Template["image_placeholders"];
+  peritos: Perito[];
+  delegacias: Delegacia[];
+  onPeritosChange: (p: Perito[]) => void;
+  onDelegaciasChange: (d: Delegacia[]) => void;
   onUpdate: (patch: Partial<RowState>) => void;
   onRemove: () => void;
   onImageChange: (placeholderId: string, file: File) => void;
@@ -331,11 +376,45 @@ function CaseCard({
   imagesBySectionId,
   orphanImages,
   allImages,
+  peritos,
+  delegacias,
+  onPeritosChange,
+  onDelegaciasChange,
   onUpdate,
   onRemove,
   onImageChange,
 }: CaseCardProps) {
   const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
+  const [newPeritoForm, setNewPeritoForm] = useState<{ nome: string; matricula: string } | null>(null);
+  const [newDelForm, setNewDelForm] = useState<{ nome: string; municipio: string } | null>(null);
+
+  async function handleCreatePerito() {
+    if (!newPeritoForm?.nome.trim() || !newPeritoForm?.matricula.trim()) return;
+    try {
+      const created = await createPerito({ nome: newPeritoForm.nome, matricula: newPeritoForm.matricula });
+      onPeritosChange([...peritos, created]);
+      // Auto-select the new perito
+      const peritoVar = template.variables.find((v) => v.key === "nome_perito");
+      if (peritoVar) {
+        const val = `${created.nome} ${created.cargo} Mat. ${created.matricula}`;
+        onUpdate({ variableValues: { ...row.variableValues, [peritoVar.id]: val } });
+      }
+      setNewPeritoForm(null);
+    } catch { /* ignore */ }
+  }
+
+  async function handleCreateDel() {
+    if (!newDelForm?.nome.trim()) return;
+    try {
+      const created = await createDelegacia({ nome: newDelForm.nome, municipio: newDelForm.municipio });
+      onDelegaciasChange([...delegacias, created]);
+      const delVar = template.variables.find((v) => v.key === "delegacia_requisitante");
+      if (delVar) {
+        onUpdate({ variableValues: { ...row.variableValues, [delVar.id]: created.nome } });
+      }
+      setNewDelForm(null);
+    } catch { /* ignore */ }
+  }
 
   const uploadedCount = allImages.filter((p) => row.imagePaths[p.id]).length;
   const hasAllImages = allImages.length > 0 && uploadedCount === allImages.length;
@@ -371,25 +450,74 @@ function CaseCard({
       {/* ── Variables grid ── */}
       {template.variables.length > 0 && (
         <div className="batch-vars-grid">
-          {template.variables.map((v) => (
-            <VarField
-              key={v.id}
-              variable={v}
-              value={row.variableValues[v.id] ?? ""}
-              onChange={(val) => {
-                const patch: Partial<RowState> = {
-                  variableValues: { ...row.variableValues, [v.id]: val },
-                };
-                if (v.key === "rep") {
-                  const defaultLabel = `Caso ${index + 1}`;
-                  if (row.rowLabel === defaultLabel || row.rowLabel.startsWith("REP ")) {
-                    patch.rowLabel = val.trim() ? `REP ${val.trim()}` : defaultLabel;
+          {template.variables.map((v) => {
+            let suggestions: { label: string; value: string }[] | undefined;
+            let onCreateNew: (() => void) | undefined;
+            if (v.key === "nome_perito" && peritos.length > 0) {
+              suggestions = peritos.map((p) => ({
+                label: `${p.nome} — Mat. ${p.matricula}`,
+                value: `${p.nome} ${p.cargo} Mat. ${p.matricula}`,
+              }));
+              onCreateNew = () => setNewPeritoForm({ nome: "", matricula: "" });
+            } else if (v.key === "delegacia_requisitante" && delegacias.length > 0) {
+              suggestions = delegacias.map((d) => ({
+                label: d.municipio ? `${d.nome} — ${d.municipio}` : d.nome,
+                value: d.nome,
+              }));
+              onCreateNew = () => setNewDelForm({ nome: "", municipio: "" });
+            }
+            return (
+              <VarField
+                key={v.id}
+                variable={v}
+                value={row.variableValues[v.id] ?? ""}
+                suggestions={suggestions}
+                onCreateNew={onCreateNew}
+                onChange={(val) => {
+                  const patch: Partial<RowState> = {
+                    variableValues: { ...row.variableValues, [v.id]: val },
+                  };
+                  if (v.key === "rep") {
+                    const defaultLabel = `Caso ${index + 1}`;
+                    if (row.rowLabel === defaultLabel || row.rowLabel.startsWith("REP ")) {
+                      patch.rowLabel = val.trim() ? `REP ${val.trim()}` : defaultLabel;
+                    }
                   }
-                }
-                onUpdate(patch);
-              }}
-            />
-          ))}
+                  onUpdate(patch);
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Inline "Novo Perito" form ── */}
+      {newPeritoForm && (
+        <div className="entity-new-form">
+          <strong>Novo Perito</strong>
+          <input className="batch-var-input" placeholder="Nome completo" value={newPeritoForm.nome}
+            onChange={(e) => setNewPeritoForm({ ...newPeritoForm, nome: e.target.value })} />
+          <input className="batch-var-input" placeholder="Matrícula (ex: 18435416-01)" value={newPeritoForm.matricula}
+            onChange={(e) => setNewPeritoForm({ ...newPeritoForm, matricula: e.target.value })} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="batch-generate-btn" style={{ flex: 1, padding: "6px 0" }} onClick={handleCreatePerito}>Salvar</button>
+            <button type="button" className="secondary" onClick={() => setNewPeritoForm(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Inline "Nova Delegacia" form ── */}
+      {newDelForm && (
+        <div className="entity-new-form">
+          <strong>Nova Delegacia</strong>
+          <input className="batch-var-input" placeholder="Nome da delegacia" value={newDelForm.nome}
+            onChange={(e) => setNewDelForm({ ...newDelForm, nome: e.target.value })} />
+          <input className="batch-var-input" placeholder="Município" value={newDelForm.municipio}
+            onChange={(e) => setNewDelForm({ ...newDelForm, municipio: e.target.value })} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="batch-generate-btn" style={{ flex: 1, padding: "6px 0" }} onClick={handleCreateDel}>Salvar</button>
+            <button type="button" className="secondary" onClick={() => setNewDelForm(null)}>Cancelar</button>
+          </div>
         </div>
       )}
 

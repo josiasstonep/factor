@@ -1,7 +1,9 @@
 import type {
   AiProviderInfo,
+  Delegacia,
   GenerateBatchResponse,
   ImproveResponse,
+  Perito,
   ReportInputCreate,
   Template,
   TemplateImagePlaceholder,
@@ -69,6 +71,14 @@ export async function renameTemplate(id: string, name: string): Promise<Template
 
 export async function deleteTemplate(id: string): Promise<void> {
   await request<void>(`/templates/${id}`, { method: "DELETE" });
+}
+
+export async function listBuiltinTypes(): Promise<{ key: string; label: string }[]> {
+  return request<{ key: string; label: string }[]>("/templates/builtin/types");
+}
+
+export async function createBuiltinTemplate(expertiseType: string): Promise<Template> {
+  return request<Template>(`/templates/builtin/${encodeURIComponent(expertiseType)}`, { method: "POST" });
 }
 
 // ─── Uploads ─────────────────────────────────────────────────────────────────
@@ -140,4 +150,56 @@ export async function acceptSection(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ report_id: reportId, section_id: sectionId, accept }),
   });
+}
+
+// ─── Peritos ─────────────────────────────────────────────────────────────────
+
+export async function listPeritos(): Promise<Perito[]> {
+  return request<Perito[]>("/peritos");
+}
+
+export async function createPerito(data: { nome: string; matricula: string; cargo?: string }): Promise<Perito> {
+  return request<Perito>("/peritos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePerito(id: string, data: { nome: string; matricula: string; cargo?: string }): Promise<Perito> {
+  return request<Perito>(`/peritos/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deletePerito(id: string): Promise<void> {
+  await request<void>(`/peritos/${id}`, { method: "DELETE" });
+}
+
+// ─── Delegacias ───────────────────────────────────────────────────────────────
+
+export async function listDelegacias(): Promise<Delegacia[]> {
+  return request<Delegacia[]>("/delegacias");
+}
+
+export async function createDelegacia(data: { nome: string; municipio?: string }): Promise<Delegacia> {
+  return request<Delegacia>("/delegacias", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDelegacia(id: string, data: { nome: string; municipio?: string }): Promise<Delegacia> {
+  return request<Delegacia>(`/delegacias/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteDelegacia(id: string): Promise<void> {
+  await request<void>(`/delegacias/${id}`, { method: "DELETE" });
 }

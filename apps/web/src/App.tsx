@@ -140,6 +140,7 @@ export default function App() {
             setResult(r);
             setStep("review");
           }}
+          onRowsChange={(updated) => setBatchRows(updated)}
         />
       )}
 
