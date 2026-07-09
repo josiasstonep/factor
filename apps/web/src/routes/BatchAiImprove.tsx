@@ -30,6 +30,7 @@ const IMPROVABLE_TYPES = new Set(["historia", "descricao", "analise", "conclusao
 export default function BatchAiImprove({ template, rows, onContinue, onSkip }: Props) {
   const [providers, setProviders] = useState<AiProviderInfo[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [checking, setChecking] = useState(false);
   const [sections, setSections] = useState<Record<SectionKey, SectionImproveState>>({});
@@ -56,6 +57,8 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
 
   const provider = providers.find((p) => p.name === selectedProvider);
   const keyRequired = provider?.requires_key ?? false;
+  const ollamaModels = provider?.available_models ?? [];
+  const effectiveModel = selectedModel || ollamaModels[0] || null;
 
   function getState(rowId: string, sectionId: string): SectionImproveState {
     return sections[sKey(rowId, sectionId)] ?? {
@@ -77,7 +80,8 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
     try {
       const res = await improveRawText(
         text, template.id, sectionId, selectedProvider,
-        keyRequired ? apiKey || null : null, null,
+        keyRequired ? apiKey || null : null,
+        effectiveModel,
       );
       patchState(row.rowId, sectionId, {
         improving: false, aiText: res.ai_text, diff: res.diff, accepted: null,
@@ -146,6 +150,15 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
             </button>
           </div>
         </div>
+
+        {ollamaModels.length > 0 && (
+          <div className="field-row" style={{ flex: "1 1 180px", marginBottom: 0 }}>
+            <label>Modelo</label>
+            <select value={selectedModel || ollamaModels[0]} onChange={(e) => setSelectedModel(e.target.value)}>
+              {ollamaModels.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        )}
 
         {keyRequired && (
           <div className="field-row" style={{ flex: "2 1 260px", marginBottom: 0 }}>

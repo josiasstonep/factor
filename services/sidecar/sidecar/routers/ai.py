@@ -22,18 +22,24 @@ class ProviderInfo(BaseModel):
     requires_key: bool
     available: bool
     default_model: str | None = None
+    available_models: list[str] = []
 
 
 @router.get("/providers", response_model=list[ProviderInfo])
 async def list_providers():
     result = []
     for p in all_providers():
+        available = await p.is_available()
+        models: list[str] = []
+        if available and hasattr(p, "list_models"):
+            models = await p.list_models()
         result.append(
             ProviderInfo(
                 name=p.name,
                 label=p.label,
                 requires_key=p.requires_key,
-                available=await p.is_available(),
+                available=available,
+                available_models=models,
             )
         )
     return result

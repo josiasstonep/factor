@@ -117,6 +117,7 @@ export interface AiProviderInfo {
   label: string;
   requires_key: boolean;
   available: boolean;
+  available_models: string[];
 }
 
 export interface DiffOp {

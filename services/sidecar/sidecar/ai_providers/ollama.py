@@ -2,7 +2,7 @@ import httpx
 
 from sidecar.ai_providers.base import IMPROVE_USER_TEMPLATE, build_system_prompt, register
 
-_OLLAMA_BASE = "http://localhost:11434"
+_OLLAMA_BASE = "http://127.0.0.1:11434"
 _DEFAULT_MODEL = "llama3.2"
 
 
@@ -13,11 +13,22 @@ class _Ollama:
 
     async def is_available(self) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                r = await client.get(f"{_OLLAMA_BASE}/")
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                r = await client.get(f"{_OLLAMA_BASE}/api/tags")
                 return r.status_code < 500
         except Exception:
             return False
+
+    async def list_models(self) -> list[str]:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                r = await client.get(f"{_OLLAMA_BASE}/api/tags")
+                if r.status_code == 200:
+                    data = r.json()
+                    return [m["name"] for m in data.get("models", [])]
+        except Exception:
+            pass
+        return []
 
     async def improve_text(
         self,
