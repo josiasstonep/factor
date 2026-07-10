@@ -86,14 +86,16 @@ _SECTION_GUIDANCE: dict[str, str] = {
     ),
     "conclusao": (
         "SEÇÃO: Conclusão. Você receberá TODOS os parágrafos desta seção de uma vez.\n"
-        "ESCOPO DESTA SEÇÃO: descreve o DESFECHO da perícia e os encaminhamentos formais.\n"
-        "O QUE INCLUIR: resultado final da perícia (devolução do vestígio, impossibilidade técnica), "
-        "condições para nova requisição (se aplicável), encaminhamentos e ressalvas formais.\n"
-        "O QUE NÃO INCLUIR AQUI (pertence à Análise): detalhes técnicos do processo de exame, "
-        "descrição de impedimentos já explicados na seção anterior.\n"
-        "SUPRESSÃO: elimine afirmações de extração bem-sucedida, dados coletados, arquivos gerados "
+        "ESCOPO DESTA SEÇÃO: síntese completa da perícia — do recebimento ao desfecho.\n"
+        "O QUE INCLUIR (tudo em conjunto, de forma coesa):\n"
+        "- Resumo do objeto periciado e da requisição;\n"
+        "- O que foi constatado durante o exame (condição do vestígio, impedimentos técnicos);\n"
+        "- O que foi ou não possível realizar e por quê;\n"
+        "- Desfecho: devolução do vestígio, encaminhamentos, ressalvas e condições para nova perícia.\n"
+        "SUPRESSÃO: elimine afirmações de extração bem-sucedida, dados coletados ou arquivos gerados "
         "se isso não ocorreu no caso.\n"
-        "CONSOLIDAÇÃO: não repita a mesma informação em múltiplos parágrafos."
+        "CONSOLIDAÇÃO: não repita a mesma informação em múltiplos parágrafos — produza um texto "
+        "corrido e coeso que cubra todos os pontos acima sem redundância."
     ),
     "custom": (
         "Adapte APENAS o que for diretamente mencionado nas particularidades do caso. "
