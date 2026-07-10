@@ -230,3 +230,24 @@ export async function updateDelegacia(id: string, data: { nome: string; municipi
 export async function deleteDelegacia(id: string): Promise<void> {
   await request<void>(`/delegacias/${id}`, { method: "DELETE" });
 }
+
+// ─── Config (API keys) ────────────────────────────────────────────────────────
+
+export interface KeysStatus {
+  groq: boolean;
+  openai: boolean;
+  claude: boolean;
+  gemini: boolean;
+}
+
+export async function getKeysStatus(): Promise<KeysStatus> {
+  return request<KeysStatus>("/config/keys");
+}
+
+export async function saveKeys(keys: Partial<Record<"groq" | "openai" | "claude" | "gemini", string>>): Promise<void> {
+  await request("/config/keys", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(keys),
+  });
+}

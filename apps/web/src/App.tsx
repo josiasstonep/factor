@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { GenerateBatchResponse, Template } from "./api/types";
+import ConfigModal from "./components/ConfigModal";
 import BatchAiImprove from "./routes/BatchAiImprove";
 import BatchForm, { type RowState } from "./routes/BatchForm";
 import BatchPreview from "./routes/BatchPreview";
@@ -25,6 +26,7 @@ export default function App() {
   const [template, setTemplate] = useState<Template | null>(null);
   const [batchRows, setBatchRows] = useState<RowState[] | null>(null);
   const [result, setResult] = useState<GenerateBatchResponse | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
 
   function stepStatus(key: Step): "active" | "done" | "" {
     const order = WIZARD_STEPS.map((s) => s.key);
@@ -50,16 +52,28 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <h1 style={{ cursor: showWizard ? "pointer" : "default" }} onClick={() => {
-        if (showWizard) {
-          setTemplate(null);
-          setBatchRows(null);
-          setResult(null);
-          setStep("home");
-        }
-      }}>
-        Factor — Gerador de Laudos Periciais
-      </h1>
+      {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <h1 style={{ cursor: showWizard ? "pointer" : "default", margin: 0 }} onClick={() => {
+          if (showWizard) {
+            setTemplate(null);
+            setBatchRows(null);
+            setResult(null);
+            setStep("home");
+          }
+        }}>
+          Factor — Gerador de Laudos Periciais
+        </h1>
+        <button
+          type="button"
+          className="secondary"
+          title="Configurações — Chaves de API"
+          onClick={() => setShowConfig(true)}
+          style={{ padding: "6px 12px", fontSize: 14 }}
+        >
+          ⚙ API
+        </button>
+      </div>
 
       {showWizard && (
         <div className="steps">

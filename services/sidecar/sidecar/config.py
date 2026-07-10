@@ -51,3 +51,30 @@ def get_env_key(provider_name: str) -> str | None:
         return None
     val = os.environ.get(env_var, "").strip()
     return val or None
+
+
+def _writable_env_file() -> Path:
+    """Return the .env file path to write to (first existing, else DATA_DIR/.env)."""
+    candidates = [
+        DATA_DIR / ".env",
+        _SIDECAR_DIR / ".env",
+        _SIDECAR_DIR.parent.parent / ".env",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return DATA_DIR / ".env"
+
+
+def save_env_key(provider_name: str, key_value: str) -> None:
+    """Write (or update) a provider API key in the .env file and reload it."""
+    from dotenv import set_key
+
+    env_var = _KEY_ENV_VARS.get(provider_name)
+    if not env_var:
+        return
+    env_file = _writable_env_file()
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    set_key(str(env_file), env_var, key_value.strip())
+    # Reload so the new value is immediately available in this process
+    load_dotenv(str(env_file), override=True)
