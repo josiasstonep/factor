@@ -71,19 +71,26 @@ _SECTION_GUIDANCE: dict[str, str] = {
         "O restante permanece idêntico."
     ),
     "analise": (
-        "SEÇÃO: Análise Pericial / Aquisição de Dados. O que PODE mudar: o que foi ou não "
-        "possível realizar neste caso específico. Se o vestígio tinha impedimento físico "
-        "(ex.: conector quebrado, tela inoperante, dispositivo sem energia), descreva o "
-        "impedimento e o que foi tentado ou impossível. Se a extração foi bem-sucedida, "
-        "descreva o método usado. Adapte o texto inteiro desta seção para refletir o que "
-        "realmente ocorreu — não apenas palavras isoladas."
+        "SEÇÃO: Análise Pericial / Aquisição de Dados. Você receberá TODOS os parágrafos desta seção de uma vez.\n"
+        "REGRAS ESPECÍFICAS DESTA SEÇÃO:\n"
+        "1. Se houve impedimento físico (conector quebrado, tela inoperante, sem energia): "
+        "descreva o impedimento e o que foi impossibilitado. "
+        "SUPRIMA (omita completamente) os parágrafos que descrevem etapas que NÃO ocorreram: "
+        "extração bem-sucedida, upload para portal, compartilhamento de arquivo .UFDR, resultado positivo.\n"
+        "2. Se a extração foi bem-sucedida: descreva método e resultado, mantenha todos os parágrafos.\n"
+        "3. NÃO repita a mesma informação em múltiplos parágrafos — consolide em um único parágrafo claro.\n"
+        "4. EVITE estrutura 'positivo → negativo': não escreva 'A seguir apresenta-se X' se X não ocorreu. "
+        "Se algo não ocorreu, diga diretamente que não ocorreu e por quê, sem anúncio prévio."
     ),
     "conclusao": (
-        "SEÇÃO: Conclusão. O que PODE mudar: afirmações que dependem do resultado específico "
-        "deste caso (ex.: dispositivo devolvido à delegacia por impossibilidade técnica; "
-        "extração parcial realizada; dados preservados em hash). Se a perícia foi impossível, "
-        "a conclusão deve refletir isso sem mencionar extração bem-sucedida. "
-        "Adapte integralmente o que depender do resultado real."
+        "SEÇÃO: Conclusão. Você receberá TODOS os parágrafos desta seção de uma vez.\n"
+        "REGRAS ESPECÍFICAS DESTA SEÇÃO:\n"
+        "1. Se a perícia foi impossível: a conclusão deve refletir apenas o que aconteceu de fato "
+        "(devolução do vestígio, impossibilidade técnica). "
+        "SUPRIMA afirmações de extração bem-sucedida, dados preservados em hash, arquivos gerados — "
+        "se essas etapas não ocorreram.\n"
+        "2. NÃO repita a mesma informação em múltiplos parágrafos.\n"
+        "3. Adapte integralmente o que depender do resultado real do caso."
     ),
     "custom": (
         "Adapte APENAS o que for diretamente mencionado nas particularidades do caso. "
@@ -271,6 +278,11 @@ def extract_signature(text: str) -> tuple[str, str | None]:
 _SKIP_PARA_RE = re.compile(r"^\s*(\{\{[^}]+\}\}\s*)+$")
 _MIN_PARA_LEN = 20
 
+# Section types where whole-section processing is used when case context is provided.
+# These sections may need to suppress entire paragraphs (e.g., "portal upload" paragraph
+# when the device had a broken connector and no extraction occurred).
+_WHOLE_SECTION_TYPES = {"analise", "conclusao"}
+
 
 async def improve_section_paragraphs(
     provider: "AiProvider",
@@ -282,13 +294,39 @@ async def improve_section_paragraphs(
     case_context: str | None = None,
 ) -> tuple[str, list[str]]:
     """
-    Improve section text paragraph by paragraph for better results with weak local models.
-    - Preserves signature line untouched (conclusao sections)
-    - Skips pure-placeholder paragraphs and very short lines
-    - Sanitizes each result, falling back to original if quality check fails
-    Returns (improved_text, all_warnings).
+    Improve section text for better results with cloud and local models.
+
+    Whole-section mode (analise/conclusao + case_context):
+      Sends all paragraphs at once so the model can suppress redundant ones,
+      eliminate "positive setup → negative result" structures, and avoid
+      repeating the same fact across multiple paragraphs.
+
+    Per-paragraph mode (default — all other cases):
+      Processes each paragraph individually, safe for weak local models (Ollama).
+      Falls back to original paragraph on any quality failure.
+
+    Both modes:
+      - Preserve the signature line untouched (conclusao sections)
+      - Sanitize output; fall back to original on critical quality failure
     """
     body, signature = extract_signature(text)
+
+    # Whole-section mode: let the model see all paragraphs together so it can
+    # suppress inapplicable ones and avoid inter-paragraph redundancy.
+    if case_context and section_type in _WHOLE_SECTION_TYPES:
+        try:
+            raw = await provider.improve_text(
+                body, api_key, model, section_type, expertise_type, case_context
+            )
+            cleaned, warns = sanitize_ai_output(raw, body, has_context=True)
+            result = cleaned
+            if signature:
+                result = result.rstrip() + "\n\n" + signature
+            return result, warns
+        except Exception:
+            pass  # fall through to per-paragraph on any error
+
+    # Per-paragraph mode
     paragraphs = body.split("\n")
     all_warnings: list[str] = []
     improved_paras: list[str] = []
