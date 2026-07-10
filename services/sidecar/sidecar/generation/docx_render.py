@@ -94,6 +94,10 @@ def build_render_context(
             if not re.match(r"^\s*Figura\s+\d+", line, re.IGNORECASE)
         )
         resolved = _resolve_inline_vars(_sanitize_text(text), var_context)
+        # Collapse multiple consecutive newlines to a single one — double-newlines
+        # in the stored text would create empty paragraphs that add unwanted vertical
+        # space between body paragraphs inside the same chapter.
+        resolved = re.sub(r'\n{2,}', '\n', resolved)
         # \a = docxtpl paragraph break; \n in stored text = paragraph separator
         context[section_key(section)] = resolved.replace("\n", "\a")
 
@@ -369,11 +373,14 @@ def _postprocess_paragraphs(docx_path: Path) -> None:
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
             else:
-                # Empty paragraph (blank line within section content): zero out all
-                # spacing so Word's Normal style default doesn't create visual gaps
-                # between paragraphs inside the same chapter.
-                p.paragraph_format.space_before = Pt(0)
-                p.paragraph_format.space_after = Pt(0)
+                # Empty paragraph: collapse to near-zero height so it doesn't
+                # create visible gaps. space_before/after alone is not enough —
+                # the natural line height (font_size × line_spacing) still adds space.
+                pf = p.paragraph_format
+                pf.space_before = Pt(0)
+                pf.space_after = Pt(0)
+                pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+                pf.line_spacing = Pt(1)
 
         elif _CAPTION_RE.match(text):
             # Figure captions: center, no indent, compact — leave alignment/bold as set
