@@ -45,9 +45,21 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
   const [sections, setSections] = useState<Record<SectionKey, SectionImproveState>>({});
   const [improvingAll, setImprovingAll] = useState(false);
   const [localRows, setLocalRows] = useState<RowState[]>(rows);
-  const [caseDetails, setCaseDetails] = useState<Record<string, string>>(
+  const [vestigioConditions, setVestigioConditions] = useState<Record<string, string>>(
+    () => Object.fromEntries(rows.map((r) => [r.rowId, ""])),
+  );
+  const [caseNarrative, setCaseNarrative] = useState<Record<string, string>>(
     () => Object.fromEntries(rows.map((r) => [r.rowId, r.caseDetails ?? ""])),
   );
+
+  function buildCaseContext(rowId: string): string | null {
+    const conditions = vestigioConditions[rowId]?.trim();
+    const narrative = caseNarrative[rowId]?.trim();
+    const parts: string[] = [];
+    if (conditions) parts.push(`Condições do vestígio: ${conditions}`);
+    if (narrative) parts.push(`Relato: ${narrative}`);
+    return parts.length > 0 ? parts.join("\n") : null;
+  }
 
   const sortedSections = template.sections
     .filter((s) => IMPROVABLE_TYPES.has(s.type) && s.is_ai_improvable)
@@ -95,7 +107,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
         text, template.id, sectionId, selectedProvider,
         keyRequired ? apiKey || null : null,
         effectiveModel,
-        caseDetails[row.rowId] || null,
+        buildCaseContext(row.rowId),
         buildVariableContext(row, template),
       );
       patchState(row.rowId, sectionId, {
@@ -242,16 +254,36 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
           )}
 
           <div className="case-details-block">
-            <label>
-              Particularidades deste caso
-              <span> (opcional — a IA usará para adaptar os textos sem inventar fatos)</span>
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Ex: celular com tela quebrada, Cellebrite nao suportou extracao logica, apenas chip SIM foi extraido, dois chips instalados..."
-              value={caseDetails[row.rowId] ?? ""}
-              onChange={(e) => setCaseDetails((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
-            />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                  Condições do vestígio recebido
+                  <span style={{ fontWeight: 400, color: "#6b7280" }}> (opcional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  style={{ width: "100%", fontSize: 12, boxSizing: "border-box" }}
+                  placeholder="Ex: conector quebrado, tela trincada, lacre ausente, dois chips..."
+                  value={vestigioConditions[row.rowId] ?? ""}
+                  onChange={(e) => setVestigioConditions((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
+                />
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>Usado em: Descrição e Análise</div>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                  Relato do caso
+                  <span style={{ fontWeight: 400, color: "#6b7280" }}> (opcional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  style={{ width: "100%", fontSize: 12, boxSizing: "border-box" }}
+                  placeholder="Ex: aparelho será devolvido, nova requisição possível após conserto..."
+                  value={caseNarrative[row.rowId] ?? ""}
+                  onChange={(e) => setCaseNarrative((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
+                />
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>Usado em: Histórico e Conclusão</div>
+              </div>
+            </div>
           </div>
 
           {sortedSections.map((s) => {
@@ -334,7 +366,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
           type="button"
           className="secondary"
           style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}
-          onClick={() => onSkip(localRows.map((r) => ({ ...r, caseDetails: caseDetails[r.rowId] ?? "" })))}
+          onClick={() => onSkip(localRows.map((r) => ({ ...r, caseDetails: caseNarrative[r.rowId] ?? "" })))}
         >
           Pular IA →
         </button>
@@ -346,7 +378,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
         <button
           type="button"
           className="batch-generate-btn"
-          onClick={() => onContinue(localRows.map((r) => ({ ...r, caseDetails: caseDetails[r.rowId] ?? "" })))}
+          onClick={() => onContinue(localRows.map((r) => ({ ...r, caseDetails: caseNarrative[r.rowId] ?? "" })))}
         >
           {totalImproved > 0 ? `Continuar com ${totalImproved} melhorias →` : "Continuar sem IA →"}
         </button>
