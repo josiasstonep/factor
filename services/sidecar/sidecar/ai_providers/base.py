@@ -64,20 +64,26 @@ _SECTION_GUIDANCE: dict[str, str] = {
         "O restante permanece idêntico."
     ),
     "descricao": (
-        "SEÇÃO: Descrição do Material. O que PODE mudar: estado físico específico do vestígio "
-        "(ex.: conector quebrado, tela trincada, lacre ausente, número de chips). "
+        "SEÇÃO: Descrição do Material / Condições do Aparelho. O que PODE mudar: estado físico "
+        "específico do vestígio (ex.: conector quebrado/danificado, tela trincada, lacre ausente, "
+        "número de chips, marca, modelo, IMEI, cor, condições de conservação). "
+        "Descreva fielmente a condição real informada nas particularidades. "
         "O restante permanece idêntico."
     ),
     "analise": (
-        "SEÇÃO: Análise Pericial. O que PODE mudar: o que foi ou não possível realizar "
-        "neste caso específico (ex.: extração lógica impossível por tela inoperante; "
-        "apenas chip SIM extraído; Cellebrite não suportou o modelo). "
-        "O restante permanece idêntico."
+        "SEÇÃO: Análise Pericial / Aquisição de Dados. O que PODE mudar: o que foi ou não "
+        "possível realizar neste caso específico. Se o vestígio tinha impedimento físico "
+        "(ex.: conector quebrado, tela inoperante, dispositivo sem energia), descreva o "
+        "impedimento e o que foi tentado ou impossível. Se a extração foi bem-sucedida, "
+        "descreva o método usado. Adapte o texto inteiro desta seção para refletir o que "
+        "realmente ocorreu — não apenas palavras isoladas."
     ),
     "conclusao": (
         "SEÇÃO: Conclusão. O que PODE mudar: afirmações que dependem do resultado específico "
-        "deste caso (ex.: dispositivo encaminhado à delegacia X; extração parcial realizada). "
-        "O restante permanece idêntico."
+        "deste caso (ex.: dispositivo devolvido à delegacia por impossibilidade técnica; "
+        "extração parcial realizada; dados preservados em hash). Se a perícia foi impossível, "
+        "a conclusão deve refletir isso sem mencionar extração bem-sucedida. "
+        "Adapte integralmente o que depender do resultado real."
     ),
     "custom": (
         "Adapte APENAS o que for diretamente mencionado nas particularidades do caso. "
@@ -161,10 +167,18 @@ _ECHOED_CONTEXT_RE = re.compile(
 )
 
 
-def sanitize_ai_output(ai_text: str, original_text: str) -> tuple[str, list[str]]:
+def sanitize_ai_output(
+    ai_text: str,
+    original_text: str,
+    has_context: bool = False,
+) -> tuple[str, list[str]]:
     """
     Strip AI formatting artifacts and detect quality issues.
     Returns (cleaned_text, warnings). On critical failure, returns (original_text, warnings).
+
+    has_context=True relaxes length and word-overlap checks because the AI is legitimately
+    rewriting content to reflect case-specific facts (e.g. broken connector → no extraction).
+    Without context the model should return near-identical text, so stricter thresholds apply.
     """
     warnings: list[str] = []
     text = ai_text.strip()
@@ -193,22 +207,28 @@ def sanitize_ai_output(ai_text: str, original_text: str) -> tuple[str, list[str]
 
     cleaned = _MARKDOWN_RE.sub(_demd, cleaned)
 
-    # Detect aggressive summarization (output < 72% of original length)
-    if len(cleaned) < len(original_text) * 0.72:
+    # Length check.
+    # With context: the AI may legitimately produce a much shorter text
+    # (e.g. "conector quebrado — sem extração" replaces a long brute-force paragraph).
+    # Without context: the output should be close in length to the original.
+    length_threshold = 0.30 if has_context else 0.72
+    if len(cleaned) < len(original_text) * length_threshold:
         warnings.append("summarized")
         return original_text, warnings
 
-    # Detect hallucination / rewrite: check word-level preservation.
-    # If the AI output shares < 40% of the original's words (Jaccard-like overlap),
-    # it rewrote the content instead of adapting it — reject.
-    _WORD_RE = re.compile(r"\b\w{4,}\b")  # only words ≥4 chars to skip stopwords
-    orig_words = set(w.lower() for w in _WORD_RE.findall(original_text))
-    out_words = set(w.lower() for w in _WORD_RE.findall(cleaned))
-    if orig_words:
-        overlap = len(orig_words & out_words) / len(orig_words)
-        if overlap < 0.40:
-            warnings.append("hallucinated")
-            return original_text, warnings
+    # Word-overlap / hallucination check.
+    # Skip when case context is provided: the AI is expected to legitimately change
+    # the narrative (different facts → different words). Applying this check with
+    # context would silently revert correct adaptations.
+    if not has_context:
+        _WORD_RE = re.compile(r"\b\w{4,}\b")  # words ≥4 chars to skip stopwords
+        orig_words = set(w.lower() for w in _WORD_RE.findall(original_text))
+        out_words = set(w.lower() for w in _WORD_RE.findall(cleaned))
+        if orig_words:
+            overlap = len(orig_words & out_words) / len(orig_words)
+            if overlap < 0.40:
+                warnings.append("hallucinated")
+                return original_text, warnings
 
     # Detect destroyed variables: {{key}} present in original but missing in output
     orig_vars = set(_VAR_RE.findall(original_text))
@@ -283,7 +303,7 @@ async def improve_section_paragraphs(
             raw = await provider.improve_text(
                 para, api_key, model, section_type, expertise_type, case_context
             )
-            cleaned, warns = sanitize_ai_output(raw, para)
+            cleaned, warns = sanitize_ai_output(raw, para, has_context=bool(case_context))
             all_warnings.extend(warns)
             improved_paras.append(cleaned)
         except Exception:
