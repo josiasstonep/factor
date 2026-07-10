@@ -117,6 +117,7 @@ export interface AiProviderInfo {
   label: string;
   requires_key: boolean;
   available: boolean;
+  has_key_configured: boolean;
   available_models: string[];
 }
 

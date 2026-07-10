@@ -1,6 +1,7 @@
 import httpx
 
 from sidecar.ai_providers.base import build_system_prompt, build_user_message, register
+from sidecar.config import get_env_key
 
 _API_URL = "https://api.anthropic.com/v1/messages"
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
@@ -23,8 +24,9 @@ class _Claude:
         expertise_type: str | None = None,
         case_context: str | None = None,
     ) -> str:
-        if not api_key:
-            raise ValueError("Claude requires an API key.")
+        effective_key = api_key or get_env_key("claude")
+        if not effective_key:
+            raise ValueError("Claude requires an API key. Configure ANTHROPIC_API_KEY no .env ou cole a chave na interface.")
         m = model or _DEFAULT_MODEL
         system_prompt = build_system_prompt(section_type, expertise_type)
         user_msg = build_user_message(text, case_context)
@@ -32,7 +34,7 @@ class _Claude:
             r = await client.post(
                 _API_URL,
                 headers={
-                    "x-api-key": api_key,
+                    "x-api-key": effective_key,
                     "anthropic-version": "2023-06-01",
                     "content-type": "application/json",
                 },

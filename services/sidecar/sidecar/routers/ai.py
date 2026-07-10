@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from sidecar import repo
 from sidecar.ai_providers.base import all_providers, get_provider, improve_section_paragraphs
+from sidecar.config import get_env_key
 from sidecar.diffing.word_diff import word_diff
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -21,6 +22,7 @@ class ProviderInfo(BaseModel):
     label: str
     requires_key: bool
     available: bool
+    has_key_configured: bool = False
     default_model: str | None = None
     available_models: list[str] = []
 
@@ -39,6 +41,7 @@ async def list_providers():
                 label=p.label,
                 requires_key=p.requires_key,
                 available=available,
+                has_key_configured=bool(get_env_key(p.name)),
                 available_models=models,
             )
         )

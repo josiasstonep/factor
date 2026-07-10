@@ -68,7 +68,8 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
   useEffect(() => { void loadProviders(); }, []);
 
   const provider = providers.find((p) => p.name === selectedProvider);
-  const keyRequired = provider?.requires_key ?? false;
+  // Key is required only when provider needs one AND it's not already configured via .env
+  const keyRequired = (provider?.requires_key ?? false) && !(provider?.has_key_configured ?? false);
   const ollamaModels = provider?.available_models ?? [];
   const effectiveModel = selectedModel || ollamaModels[0] || null;
 
@@ -203,6 +204,11 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
           <div className="field-row" style={{ flex: "2 1 260px", marginBottom: 0 }}>
             <label>Chave de API</label>
             <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Cole sua chave (não é salva)" />
+          </div>
+        )}
+        {(provider?.requires_key && provider?.has_key_configured) && (
+          <div style={{ alignSelf: "flex-end", fontSize: 12, color: "#16a34a", fontWeight: 600, paddingBottom: 8 }}>
+            ✓ Chave configurada via .env
           </div>
         )}
 

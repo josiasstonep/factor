@@ -1,6 +1,7 @@
 import httpx
 
 from sidecar.ai_providers.base import build_system_prompt, build_user_message, register
+from sidecar.config import get_env_key
 
 _DEFAULT_MODEL = "gemini-2.0-flash"
 _API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -23,11 +24,12 @@ class _Gemini:
         expertise_type: str | None = None,
         case_context: str | None = None,
     ) -> str:
-        if not api_key:
-            raise ValueError("Gemini requires an API key.")
+        effective_key = api_key or get_env_key("gemini")
+        if not effective_key:
+            raise ValueError("Gemini requires an API key. Configure GEMINI_API_KEY no .env ou cole a chave na interface.")
         m = model or _DEFAULT_MODEL
         system_prompt = build_system_prompt(section_type, expertise_type)
-        url = f"{_API_BASE}/{m}:generateContent?key={api_key}"
+        url = f"{_API_BASE}/{m}:generateContent?key={effective_key}"
         async with httpx.AsyncClient(timeout=60.0) as client:
             r = await client.post(
                 url,
