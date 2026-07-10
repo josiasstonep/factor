@@ -250,13 +250,18 @@ def sanitize_ai_output(
                 warnings.append("hallucinated")
                 return original_text, warnings
 
-    # Detect destroyed variables: {{key}} present in original but missing in output
+    # Detect destroyed variables: {{key}} present in original but missing in output.
+    # Without context: fatal — the model had no reason to remove variables, restore original.
+    # With context: downgrade to warning — the model legitimately rewrote the section and
+    # the user is already reviewing the diff; they can reject if variables are critical.
     orig_vars = set(_VAR_RE.findall(original_text))
     out_vars = set(_VAR_RE.findall(cleaned))
     missing = orig_vars - out_vars
     if missing:
         warnings.append(f"vars_destroyed:{','.join(sorted(missing))}")
-        return original_text, warnings
+        if not has_context:
+            return original_text, warnings
+        # has_context=True: show the AI text with a warning so the user can decide
 
     return cleaned, warnings
 

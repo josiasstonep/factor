@@ -337,7 +337,7 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
                         {st.warnings.includes("summarized") && "⚠ IA abreviou o texto — original restaurado. "}
                         {st.warnings.includes("hallucinated") && "⚠ IA reescreveu o conteúdo (alucinação) — original restaurado. "}
                         {st.warnings.includes("echoed_context") && "⚠ IA ecoou o contexto — original restaurado. "}
-                        {st.warnings.some((w) => w.startsWith("vars_destroyed")) && "⚠ IA destruiu variáveis — original restaurado. "}
+                        {st.warnings.some((w) => w.startsWith("vars_destroyed")) && "⚠ IA removeu variáveis do texto — verifique o diff antes de aceitar. "}
                         {st.warnings.includes("preamble_stripped") && "• Prefixo removido automaticamente."}
                       </div>
                     )}
