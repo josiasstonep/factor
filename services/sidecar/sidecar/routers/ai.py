@@ -157,17 +157,14 @@ async def improve_raw_text(payload: ImproveTextRequest):
     )
     section_type = template_section.type.value if template_section else "custom"
 
-    # Merge variable_values into case_context as a compact inline string.
-    # IMPORTANT: never use headers like "DADOS DO CASO:" — they look like doc sections
-    # and weak local models (Ollama) will echo them verbatim into the output.
     full_context = payload.case_context or ""
     if payload.variable_values:
-        vals_inline = "; ".join(
-            f"{k}={v}" for k, v in payload.variable_values.items() if v
+        vals_lines = "\n".join(
+            f"  {k} = {v}" for k, v in payload.variable_values.items() if v
         )
-        if vals_inline:
-            suffix = f"[valores: {vals_inline}]"
-            full_context = f"{full_context}\n{suffix}".strip() if full_context else suffix
+        if vals_lines:
+            vals_block = f"Dados variáveis do laudo:\n{vals_lines}"
+            full_context = f"{full_context}\n\n{vals_block}".strip() if full_context else vals_block
 
     try:
         ai_text, warns = await improve_section_paragraphs(

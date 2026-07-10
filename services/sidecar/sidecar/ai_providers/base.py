@@ -7,13 +7,12 @@ from typing import Protocol, runtime_checkable
 # Philosophy: the AI is a SURGICAL ADAPTER, not an improver. The template text is already
 # correct; the only job is to reflect case-specific details where they apply.
 _CORE_MANDATE = (
-    "Você é um adaptador cirúrgico de laudos periciais. "
-    "Sua ÚNICA tarefa: reproduzir o TEXTO BASE fornecido com alterações MÍNIMAS e CIRÚRGICAS "
-    "apenas onde as PARTICULARIDADES DO CASO o exigirem. "
-    "NÃO melhore estilo. NÃO melhore gramática. NÃO melhore fluência. "
-    "NÃO resuma. NÃO expanda. NÃO reestruture. "
-    "O texto base já está correto — preserve-o integralmente, alterando somente o que "
-    "as particularidades informadas tornam necessário."
+    "Você é um perito criminal especializado em revisar laudos periciais.\n"
+    "REGRA PRINCIPAL:\n"
+    "  • Se há PARTICULARIDADES DO CASO: adapte a seção para refletir os fatos reais. "
+    "Se os fatos diferem do texto base, REESCREVA para descrever o que ocorreu. "
+    "O texto base é referência de vocabulário forense — não é conteúdo obrigatório quando os fatos divergem.\n"
+    "  • Se NÃO há particularidades: reproduza o texto base sem alterações."
 )
 
 _BASE_RULES = (
@@ -78,7 +77,7 @@ _SECTION_GUIDANCE: dict[str, str] = {
         "O restante permanece idêntico."
     ),
     "analise": (
-        "SEÇÃO: Análise Pericial / Aquisição de Dados. Você receberá TODOS os parágrafos desta seção de uma vez.\n"
+        "SEÇÃO: Análise Pericial / Aquisição de Dados.\n"
         "REGRA PRINCIPAL: se os fatos do caso (particularidades) forem DIFERENTES do que o texto base "
         "descreve, REESCREVA esta seção inteiramente para refletir o que realmente ocorreu. "
         "O texto base é referência de vocabulário forense, NÃO conteúdo a ser preservado quando "
@@ -94,7 +93,7 @@ _SECTION_GUIDANCE: dict[str, str] = {
         "VARIÁVEIS: use '(VESTÍGIO {{vestigio}})' ao mencionar o aparelho. Preserve TODAS as {{chave}}."
     ),
     "conclusao": (
-        "SEÇÃO: Conclusão. Você receberá TODOS os parágrafos desta seção de uma vez.\n"
+        "SEÇÃO: Conclusão.\n"
         "ESCOPO: síntese completa da perícia — do recebimento ao desfecho.\n"
         "FONTES DO CONTEXTO:\n"
         "- 'Condições do vestígio:' → inclua estado do aparelho e impedimentos técnicos.\n"
@@ -145,9 +144,9 @@ def build_user_message(
             f"=== FIM DO CONTEXTO ==="
         )
         parts.append(
-            "Reproduza o TEXTO BASE acima com adaptações CIRÚRGICAS apenas onde o CONTEXTO "
-            "exige mudança. Onde não houver correspondência, copie o texto EXATAMENTE. "
-            "NÃO inclua o bloco CONTEXTO no output."
+            "Adapte o TEXTO BASE conforme as PARTICULARIDADES DO CASO. "
+            "Se os fatos diferem do texto base, reescreva para refletir a realidade. "
+            "NÃO inclua o bloco CONTEXTO no output. NÃO adicione comentários ou explicações."
         )
     else:
         parts.append("Reproduza o TEXTO BASE acima sem alterações.")
@@ -170,6 +169,8 @@ IMPROVE_SYSTEM_PROMPT = build_system_prompt()
 
 
 # ─── Output sanitizer ──────────────────────────────────────────────────────────
+
+_WORD_RE = re.compile(r"\b\w{4,}\b")
 
 _PREAMBLE_RE = re.compile(
     r"^(aqui[^\n]*?:|texto melhorado[^\n]*?:|certamente[^\n]*?:|claro[^\n]*?:|"
@@ -231,7 +232,7 @@ def sanitize_ai_output(
     # With context: the AI may legitimately produce a much shorter text
     # (e.g. "conector quebrado — sem extração" replaces a long brute-force paragraph).
     # Without context: the output should be close in length to the original.
-    length_threshold = 0.30 if has_context else 0.72
+    length_threshold = 0.10 if has_context else 0.72
     if len(cleaned) < len(original_text) * length_threshold:
         warnings.append("summarized")
         return original_text, warnings
@@ -241,7 +242,6 @@ def sanitize_ai_output(
     # the narrative (different facts → different words). Applying this check with
     # context would silently revert correct adaptations.
     if not has_context:
-        _WORD_RE = re.compile(r"\b\w{4,}\b")  # words ≥4 chars to skip stopwords
         orig_words = set(w.lower() for w in _WORD_RE.findall(original_text))
         out_words = set(w.lower() for w in _WORD_RE.findall(cleaned))
         if orig_words:
@@ -337,10 +337,12 @@ async def improve_section_paragraphs(
                 body, api_key, model, section_type, expertise_type, case_context
             )
             cleaned, warns = sanitize_ai_output(raw, body, has_context=True)
-            result = cleaned
-            if signature:
-                result = result.rstrip() + "\n\n" + signature
-            return result, warns
+            if cleaned != body:  # AI produced useful output (sanitizer accepted)
+                result = cleaned
+                if signature:
+                    result = result.rstrip() + "\n\n" + signature
+                return result, warns
+            # cleaned == body means sanitizer rejected → fall through to per-paragraph
         except Exception:
             pass  # fall through to per-paragraph on any error
 
