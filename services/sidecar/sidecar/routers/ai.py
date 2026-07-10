@@ -80,7 +80,7 @@ async def improve_section(payload: ImproveRequest):
     if provider is None:
         raise HTTPException(400, f"Provedor '{payload.provider}' não registrado.")
 
-    if payload.api_key is None and provider.requires_key:
+    if payload.api_key is None and provider.requires_key and not get_env_key(payload.provider):
         raise HTTPException(400, f"Provedor '{payload.provider}' requer uma chave de API.")
 
     # Resolve section_type and expertise_type for specialized prompt
@@ -146,7 +146,7 @@ async def improve_raw_text(payload: ImproveTextRequest):
     provider = get_provider(payload.provider)
     if provider is None:
         raise HTTPException(400, f"Provedor '{payload.provider}' não registrado.")
-    if payload.api_key is None and provider.requires_key:
+    if payload.api_key is None and provider.requires_key and not get_env_key(payload.provider):
         raise HTTPException(400, f"Provedor '{payload.provider}' requer uma chave de API.")
 
     template = repo.get_template(payload.template_id) if payload.template_id else None
