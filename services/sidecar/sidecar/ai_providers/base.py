@@ -20,8 +20,12 @@ _BASE_RULES = (
     "REGRAS ABSOLUTAS:\n"
     "1. Onde nenhuma particularidade se aplicar, reproduza o parágrafo SEM QUALQUER ALTERAÇÃO.\n"
     "2. NÃO invente fatos — use somente o que está nas particularidades fornecidas.\n"
-    "3. Preserve integralmente: nomes, matrículas, REP, IMEI, hashes, datas, caminhos e todas "
-    "as variáveis {{chave}}. Não as traduza, não as remova, não as altere.\n"
+    "3. CRÍTICO — VARIÁVEIS: toda variável {{chave}} presente no texto original DEVE aparecer "
+    "na sua saída, sem exceção. Mesmo que o conteúdo da seção mude completamente, "
+    "inclua as variáveis do original em posição contextualmente adequada. "
+    "Exemplos: se o original tem '(VESTÍGIO {{vestigio}})', sua saída deve referenciar "
+    "o aparelho como '(VESTÍGIO {{vestigio}})'; se tem '{{rep}}', '{{modelo}}', '{{imei}}', "
+    "preserve-os. NUNCA substitua {{chave}} por valor literal. NUNCA omita um {{chave}}.\n"
     "4. NÃO use markdown: sem **, *, __, #, `. Texto corrido, idêntico ao estilo do original.\n"
     "5. NÃO escreva prefixos ('Aqui está:', 'Segue:', 'Certamente:', etc.). "
     "Comece DIRETAMENTE com o texto adaptado.\n"
@@ -82,7 +86,9 @@ _SECTION_GUIDANCE: dict[str, str] = {
         "SUPRESSÃO: elimine parágrafos sobre etapas que não ocorreram (extração bem-sucedida, "
         "upload para portal, arquivo .UFDR, brute-force bem-sucedido).\n"
         "CONSOLIDAÇÃO: não repita a mesma informação em múltiplos parágrafos. "
-        "EVITE 'A seguir apresenta-se X' se X não ocorreu — afirme diretamente o que não foi possível."
+        "EVITE 'A seguir apresenta-se X' se X não ocorreu — afirme diretamente o que não foi possível.\n"
+        "VARIÁVEIS: ao mencionar o aparelho/vestígio, use '(VESTÍGIO {{vestigio}})' como no original. "
+        "Preserve TODAS as variáveis {{chave}} do texto original na sua saída."
     ),
     "conclusao": (
         "SEÇÃO: Conclusão. Você receberá TODOS os parágrafos desta seção de uma vez.\n"
@@ -95,7 +101,9 @@ _SECTION_GUIDANCE: dict[str, str] = {
         "SUPRESSÃO: elimine afirmações de extração bem-sucedida, dados coletados ou arquivos gerados "
         "se isso não ocorreu no caso.\n"
         "CONSOLIDAÇÃO: não repita a mesma informação em múltiplos parágrafos — produza um texto "
-        "corrido e coeso que cubra todos os pontos acima sem redundância."
+        "corrido e coeso que cubra todos os pontos acima sem redundância.\n"
+        "VARIÁVEIS: preserve TODAS as variáveis {{chave}} do texto original (ex: {{vestigio}}, "
+        "{{rep}}, {{modelo}}, {{imei}}). Inclua-as na posição contextualmente adequada do texto adaptado."
     ),
     "custom": (
         "Adapte APENAS o que for diretamente mencionado nas particularidades do caso. "
