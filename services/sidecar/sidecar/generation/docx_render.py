@@ -156,7 +156,7 @@ _HEADING_RE = re.compile(r'^\d+\.\s')
 _CAPTION_RE = re.compile(r'^Figura\s+\d+', re.IGNORECASE)
 _LIST_ITEM_RE = re.compile(r'^[·•–—•·\-]\s|^Vest[ií]gio\s+\S+', re.UNICODE)
 _SIGNATURE_RE = re.compile(
-    r'^(.+?)\s+Perito\s+Criminal\s+Mat\.\s*([\d-]+)\s*$',
+    r'^([_\w\s.\'-]{3,120}?)\s+Perito\s+Criminal\s+Mat\.\s*([\d-]+)\s*$',
     re.IGNORECASE | re.UNICODE,
 )
 _SIG_LINE_RE = re.compile(r'_{4,}')  # 4+ underscores = signature placeholder line
@@ -250,6 +250,14 @@ def _postprocess_signature(docx_path: Path) -> None:
         name = m.group(1).strip()
         mat = m.group(2).strip()
 
+        # If the template stored underscores + name in one paragraph, separate them
+        _embedded = re.match(r'^(_{4,})\s*', name)
+        if _embedded:
+            sig_line_text = _embedded.group(1)
+            name = name[len(_embedded.group(0)):].strip()
+        else:
+            sig_line_text = "_" * 30  # filled below from preceding paragraph
+
         def _sig_para(line: str, size_pt: int,
                       space_before_pt: int = 0, space_after_pt: int = 0) -> OxmlElement:
             pe = OxmlElement("w:p")
@@ -285,21 +293,20 @@ def _postprocess_signature(docx_path: Path) -> None:
                 pe.append(r)
             return pe
 
-        # Search the preceding paragraphs for one that ends with underscores (___)
-        # Strip the underscores from that paragraph — we'll render them as a centered line instead
-        sig_line_text = "_" * 30  # default if not found in preceding text
-        for j in range(i - 1, max(-1, i - 4), -1):
-            prev_el = body_children[j]
-            if prev_el.tag != qn("w:p"):
-                continue
-            prev_text = "".join(t_el.text or "" for t_el in prev_el.iter(qn("w:t")))
-            if _SIG_LINE_RE.search(prev_text):
-                # Extract the underscores and strip them from the paragraph
-                sig_line_text = _SIG_LINE_RE.search(prev_text).group(0)
-                for t_el in prev_el.iter(qn("w:t")):
-                    if t_el.text and _SIG_LINE_RE.search(t_el.text):
-                        t_el.text = _SIG_LINE_RE.sub("", t_el.text).rstrip()
-                break
+        # When underscores were not embedded in the name, look back in preceding
+        # paragraphs for a standalone underscore line and strip it from there.
+        if not _embedded:
+            for j in range(i - 1, max(-1, i - 4), -1):
+                prev_el = body_children[j]
+                if prev_el.tag != qn("w:p"):
+                    continue
+                prev_text = "".join(t_el.text or "" for t_el in prev_el.iter(qn("w:t")))
+                if _SIG_LINE_RE.search(prev_text):
+                    sig_line_text = _SIG_LINE_RE.search(prev_text).group(0)
+                    for t_el in prev_el.iter(qn("w:t")):
+                        if t_el.text and _SIG_LINE_RE.search(t_el.text):
+                            t_el.text = _SIG_LINE_RE.sub("", t_el.text).rstrip()
+                    break
 
         body.remove(el)
         # Insert in reverse order so they appear in correct reading order:
@@ -361,6 +368,12 @@ def _postprocess_paragraphs(docx_path: Path) -> None:
                 for run in p.runs:
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
+            else:
+                # Empty paragraph (blank line within section content): zero out all
+                # spacing so Word's Normal style default doesn't create visual gaps
+                # between paragraphs inside the same chapter.
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(0)
 
         elif _CAPTION_RE.match(text):
             # Figure captions: center, no indent, compact — leave alignment/bold as set
