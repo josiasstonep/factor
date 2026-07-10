@@ -1,179 +1,85 @@
-# Factor — Rastreamento de Tarefas
+# Factor — Progresso e Pendências
 
-## Status: PROJETO COMPLETO (M1–M4) ✅ + Refinamentos em andamento
-
----
-
-## Sessão 2026-07-02 — Verificação e correção de qualidade ✅
-
-### Verificado e resolvido
-- [x] **DOCX paragraph order**: Figura 02 aparece imediatamente após "Análise Forense dos
-  Dados Extraídos" (parágrafos [10→11→12]), Figura 03 após "Verificação de Integridade"
-  ([14→15→16]). Imagens dentro das seções, não no final do documento.
-- [x] **Novo upload de PDF**: parse de REP 28203 produz exatamente 8 seções canônicas sem
-  Cellebrite/UFED. section_detect.py corrigido na sessão anterior funciona corretamente.
-- [x] **Encoding UTF-8**: aparente Mojibake nos labels era artefato do terminal Windows
-  (cp1252). Os bytes raw da API são UTF-8 correto: `c2 ba` = "º", `c3 ad` = "í".
-  Browser com fetch decodifica corretamente. Nenhuma correção necessária na API.
-- [x] **Labels de variáveis**: corrigidos de "111..." para labels canônicos:
-  REP nº, Vestígio, SEI nº, Ofício, Marca, Lacre nº.
-- [x] **Template confirmado 118af226** com estrutura final:
-  1. Histórico
-  2. Material Recebido para Análise
-  3. Objetivo
-  4. Condições Gerais
-  5. Aquisição e Preservação dos Dados Digitais
-  6. Análise Forense dos Dados Extraídos  [+1 img: Figura 02]
-  7. Verificação de Integridade dos Arquivos  [+1 img: Figura 03]
-  8. Conclusão
+Última atualização: 2026-07-10
 
 ---
 
-## Sessão 2026-07-01 — Imagens inline + Correção dos 8 capítulos ✅
+## Concluído
 
-### Imagens dentro das seções
-- [x] `TemplateImagePlaceholder` ganha campo `section_id` (opcional)
-- [x] `docx_template_builder.py`: imagens com `section_id` aparecem logo após o texto da seção
-- [x] `BatchForm.tsx`: `ImageZone` renderiza dentro de cada seção
-- [x] Template confirmado com Figura 02 e Figura 03 linkadas às suas seções
+### Infraestrutura
+- [x] Electron + React + Python FastAPI sidecar na porta 8731
+- [x] Wizard de 6 passos: Upload → Estrutura → Dados → IA → Preview → Resultado
+- [x] Templates salvos em SQLite, versionados por status (draft / confirmed)
+- [x] Geração de DOCX com imagens, cabeçalho/rodapé e variáveis {{chave}}
+- [x] Variável data_recebimento disponível em todos os templates
+- [x] Espaçamento entre capítulos no DOCX
 
-### Correção da detecção de seções (`section_detect.py`)
-- [x] `IGNORED_HEADING_FRAGMENTS`: cellebrite, ufed, physical analyzer, inseyets, ufdr
-- [x] Labels únicos por seção usando heading text real com `title_case_label()`
-- [x] Prefixo numérico ("3. ", "4. ") removido automaticamente
-- [x] `title_case_label()`: preposições portuguesas em minúsculo
-- [x] `rebuild_ti_template.py`: script robusto para re-confirmar templates T.I.
+### Templates
+- [x] Upload de PDF → parsing automático de seções
+- [x] Editor de estrutura (ordem, tipo, label, toggle IA por seção)
+- [x] Toggle is_ai_improvable por seção — seções como "Condições Gerais" não passam pela IA
+- [x] Templates builtin por tipo de perícia (backend pronto, UI pendente)
 
----
+### Chaves de API
+- [x] .env na raiz do projeto (nunca vai ao GitHub)
+- [x] config.py carrega .env em 3 locais por prioridade
+- [x] GET /config/keys retorna apenas booleans (chave nunca viaja pro frontend)
+- [x] PUT /config/keys salva no .env via python-dotenv
+- [x] Modal "API" no app para configurar chaves sem sair do app
+- [x] Providers com fallback automático para chave do .env
 
-## Sessão 2026-07-02 (tarde) — Formatação DOCX ✅
+### Passo 4 — Melhoria com IA
+- [x] Prompts reframeados: adaptador cirúrgico, não melhorador
+- [x] Sanitizador com 5 camadas: echo, comprimento, preamble, alucinação, variáveis destruídas
+- [x] Dois modos: parágrafo a parágrafo (Ollama) vs. seção inteira (cloud com contexto)
+- [x] Seções analise e conclusao processadas inteiras — modelo pode suprimir parágrafos redundantes
+- [x] Dois campos de contexto separados:
+      - "Condições do vestígio recebido" → Descrição + Análise
+      - "Relato do caso" → Histórico + Conclusão
+- [x] Sem preenchimento → seção fica igual ao template, zero alterações
+- [x] Diff visual word-level com aceitar/rejeitar por seção
+- [x] Guard do router corrigido: permite provider com chave no .env sem api_key no payload
+- [x] Guias de seção com fronteiras explícitas por capítulo
+- [x] Regra crítica de variáveis: {{chave}} deve aparecer no output mesmo com reescrita total
 
-### Concluído
-- [x] **Block quotes**: `_postprocess_paragraphs()` detecta parágrafos que abrem com `"` e
-  aplica `left_indent=5cm`, `italic=True`, alinhamento justificado
-- [x] **Mojibake CP1252**: `_sanitize_text()` corrige sequências `â€œ` → `"`, lone surrogate
-  U+DC9D → `"`, remove soft hyphens
-- [x] **Margens A4**: left=2cm, right=2cm, top=2.8cm, header_distance=0.43cm
-- [x] **Cabeçalho/rodapé largura total**: imagem renderizada em 210mm com indent -2cm
-  (compensa margem esquerda), ocupa toda a largura da página
-- [x] **Caption figuras**: Arial 11pt (era 10pt)
-- [x] **Scripts fix_*.py**: adicionados ao .gitignore
-
----
-
-## Sessão 2026-07-02 (noite) — Parser Figura 01 + UX de navegação ✅
-
-### Concluído
-- [x] **Figura 01 auto-detectada no upload**: `detect_figures_from_text` agora escaneia
-  texto completo do PDF (não só seções), detecta "Figura 01 – Vestígio..." que fica abaixo
-  de imagem embutida; usa posição Y para atribuir corretamente à seção "Material Recebido"
-  mesmo quando heading da próxima seção está na mesma página
-- [x] **Navegação pelos steps**: chips "1. Upload", "2. Estrutura" etc. ficam clicáveis
-  quando já concluídos (cursor pointer); "1. Upload" vai à tela inicial (home/TemplateList)
-- [x] **Botão "Estrutura" para templates confirmados**: recarrega dados frescos da API antes
-  de abrir o editor (evita estado obsoleto)
-- [x] **Botão "Editar" para templates draft**: permite editar um rascunho existente sem
-  re-upload do PDF
-- [x] **Diagnóstico do ciclo vicioso**: template confirmado sumia porque o sidecar do
-  Electron usa `userData/factor-data/` (prod) enquanto os testes de API iam para `.data/`
-  (dev) — dois bancos diferentes
-
-### Estado atual do DB (dev, porta 8731)
-- 2 drafts `draft_parsed` de REP 32214_2026 (sem template confirmado ainda)
-- **Para criar template confirmado com Figura 01**: reiniciar sidecar, fazer upload do PDF
-  → Figura 01 aparece automaticamente → Confirmar estrutura
+### Providers de IA suportados
+- [x] Groq (LLaMA 70B) — grátis
+- [x] Google Gemini — grátis
+- [x] Anthropic Claude
+- [x] OpenAI
+- [x] Ollama (local)
 
 ---
 
-## Sessão 2026-07-03 — Variáveis padrão + Preset quick-select + Polish ✅
+## Pendente / Próximos passos
 
-### Concluído
-- [x] **`apps/web/src/utils/standardVars.ts`** (novo): `mergeStandardVars()` injeta
-  Modelo, IMEI 1, IMEI 2, Nome do Perito, Circunscrição se ausentes do template.
-  IDs estáveis `__std__${key}` para consistência entre componentes.
-- [x] **`apps/web/src/utils/varPresets.ts`** (novo): save/load/delete de atalhos em
-  `localStorage` por chave de variável (`factor_presets_${key}`), max 20 por campo.
-- [x] **`TemplateStructureEditor.tsx`**: state de `variables` inicializado com
-  `mergeStandardVars()` → PUT confirm sempre inclui as 5 variáveis padrão.
-- [x] **`BatchForm.tsx`**: usa `effectiveTemplate` com `mergeStandardVars()` para
-  mostrar todos os campos mesmo em templates antigos; componente `VarField` com:
-  - Botão ★ salva valor atual como atalho em localStorage
-  - Botão ▾ abre dropdown com atalhos salvos (click-to-fill, × para deletar)
-  - Click-outside fecha o dropdown automaticamente
-- [x] **`BatchPreview.tsx`**: usa `effectiveTemplate` para preview e payload de geração
-- [x] **CSS**: `overflow: hidden` removido do `.batch-case` (prevenia clipping do dropdown);
-  `.batch-case-header` ganhou `border-radius: 10px 10px 0 0` próprio
-- [x] **Numeração**: GenerationReview "4." → "5.", AiImprove "5." → "6."
-- [x] **`DEVELOPMENT.md`** (novo): guia completo de setup para novo PC + handoff
+### Alta prioridade — IA
+- [ ] Testes com casos reais para calibrar prompts (tag: ia-implementada-ajustes-pendentes)
+- [ ] Testar fluxo: "conector quebrado" → Análise 1 parágrafo limpo → Conclusão com síntese completa
+- [ ] Verificar GROQ_API_KEY (console.groq.com) para ter mais um provider gratuito
 
-### Estado do repositório
-- Branch: `main` — 2 commits novos na sessão: `2c9132f`, `7001134`
-- GitHub: `https://github.com/josiasstonep/factor.git` — pushed ✅
-- TypeScript: 0 erros
+### Funcionalidades planejadas
+- [ ] Tela de seleção de tipo de perícia na home (backend pronto: listBuiltinTypes + createBuiltinTemplate)
+- [ ] UI para gerenciamento de Peritos e Delegacias (backend já implementado)
+- [ ] Configuração de cabeçalho/rodapé por template na UI
+
+### Build / Distribuição
+- [ ] Build final: Electron + PyInstaller empacotados em instalador .exe
+- [ ] Ícone, splash screen, auto-update
 
 ---
 
-## Pendente — Próxima sessão ⏳
+## Arquitetura resumida
 
-### Setup no novo PC (fazer primeiro)
-1. `git clone https://github.com/josiasstonep/factor.git`
-2. `cd factor && npm install`
-3. `cd services/sidecar && python -m venv .venv && .venv\Scripts\Activate.ps1 && pip install -r requirements.txt`
-4. `cd ../.. && npm run dev`
+apps/web/           React + TypeScript (Vite)
+  src/routes/       Telas do wizard
+  src/components/   ConfigModal, DiffView
+  src/api/          client.ts (fetch para sidecar)
 
-### Testes a fazer após setup
-- [ ] **Testar Figura 01 no upload**: fazer upload do PDF REP 32214_2026 → verificar que
-  Figura 01 aparece na lista de imagens → Confirmar → gerar DOCX
-- [ ] **Verificar DOCX gerado**: foto do vestígio entre "Material Recebido" e "Objetivo",
-  mesma formatação que Figura 02 e Figura 03
-- [ ] **Cabeçalho full-width**: verificar visualmente que cabeçalho ocupa 210mm
-- [ ] **Testar preset quick-select**: preencher campo Circunscrição → clicar ★ para salvar
-  → clicar ▾ → confirmar que o valor aparece na lista → clicar para reutilizar
+services/sidecar/   Python FastAPI
+  routers/          ai.py, templates.py, reports.py, config_router.py
+  ai_providers/     base.py (prompts + sanitizador), claude/openai/groq/gemini/ollama
+  parsing/          PDF → Template
+  docx_gen/         Template + dados → DOCX
 
-### Melhorias futuras (não urgentes)
-- [ ] Limpar drafts duplicados no DB após ter template confirmado com as 3 figuras
-- [ ] Identificação de seção no AiImprove (mostra UUID truncado; ideal: label da seção)
-- [ ] DOCX customizado do usuário como esqueleto alternativo
-- [ ] Histórico de batches por template
-- [ ] Gestão de chaves API via Electron safeStorage
-
----
-
-## M4 — Multi-templates + Packaging ✅
-
-- [x] `build_sidecar.spec` — spec PyInstaller --onedir
-- [x] `electron-builder.yml` — NSIS Windows (x64)
-- [x] `sidecar.ts` — FACTOR_DATA_DIR aponta para userData/factor-data
-- [x] `main.ts` — em modo packaged usa process.resourcesPath
-- [x] Testado: sidecar.exe → health OK + 5 providers AI
-
----
-
-## Concluído em sessões anteriores
-
-### M3 — Melhoria com IA + diff ✅
-- [x] `ai_providers/` — Ollama, Claude, OpenAI, Groq, Gemini
-- [x] `diffing/word_diff.py` + `routers/ai.py`
-- [x] `AiImprove.tsx`, `DiffView.tsx`, `GenerationReview.tsx`
-
-### M2 — Batch multi-row ✅
-- [x] `BatchForm.tsx` — N laudos com tabs, add/remove caso
-- [x] ZIP export com row_label como arcname
-
-### M1 — Fluxo base ✅
-- [x] Monorepo Electron + React + FastAPI
-- [x] Parsing PDF, geração DOCX, SQLite, endpoints
-
-### Refinamentos de qualidade ✅
-- [x] DOCX: Arial 12pt, espaçamento 1.5, margens A4
-- [x] Extração cabeçalho/rodapé do PDF
-- [x] `normalize_paragraphs_from_pdf()`: posição X para detectar parágrafos
-
----
-
-## Melhorias Futuras
-
-- DOCX customizado do usuário como esqueleto alternativo
-- Histórico de batches por template
-- Gestão de chaves API via Electron safeStorage
-- Modo offline completo com Ollama
+electron/           Shell Electron (main process)
