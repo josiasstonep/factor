@@ -463,18 +463,30 @@ export default function TemplateStructureEditor({ template, onConfirmed }: Props
           })}
         </tbody>
       </table>
-      <button
-        type="button"
-        className="secondary"
-        onClick={() =>
-          setImagePlaceholders((p) => [
-            ...p,
-            { id: uid(), type: "custom", label: "Nova Imagem", order: p.length, max_count: 1, page_hint: null, section_id: null },
-          ])
-        }
-      >
-        + Adicionar imagem
-      </button>
+      <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() =>
+            setImagePlaceholders((p) => [
+              ...p,
+              { id: uid(), type: "custom", label: "Nova Imagem", order: p.length, max_count: 1, page_hint: null, section_id: null },
+            ])
+          }
+        >
+          + Adicionar imagem
+        </button>
+        {imagePlaceholders.filter((p) => !p.section_id).length > 0 && (
+          <button
+            type="button"
+            className="danger"
+            style={{ fontSize: 12 }}
+            onClick={() => setImagePlaceholders((p) => p.filter((x) => x.section_id))}
+          >
+            Remover {imagePlaceholders.filter((p) => !p.section_id).length} sem seção
+          </button>
+        )}
+      </span>
 
       <div className="actions">
         <button type="button" disabled={saving || sections.length === 0} onClick={handleConfirm}>

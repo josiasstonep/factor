@@ -425,6 +425,7 @@ function CaseCard({
   const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
   const [newPeritoForm, setNewPeritoForm] = useState<{ nome: string; matricula: string } | null>(null);
   const [newDelForm, setNewDelForm] = useState<{ nome: string; municipio: string } | null>(null);
+  const [imagesExpanded, setImagesExpanded] = useState(allImages.length <= 6);
 
   async function handleCreatePerito() {
     if (!newPeritoForm?.nome.trim() || !newPeritoForm?.matricula.trim()) return;
@@ -580,24 +581,41 @@ function CaseCard({
 
       {/* ── Images row ── */}
       {allImages.length > 0 && (
-        <div className="batch-images-row">
-          {allImages.map((p) => (
-            <CompactImageZone
-              key={p.id}
-              label={p.label}
-              uploading={row.uploadingId === p.id}
-              previewUrl={row.imagePreviewUrls[p.id] ?? null}
-              referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
-              onFile={(file) => onImageChange(p.id, file)}
-              onRemove={() =>
-                onUpdate({
-                  imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
-                  imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
-                })
-              }
-            />
-          ))}
-        </div>
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 4px" }}>
+            <button
+              type="button"
+              className="secondary batch-toggle-btn"
+              onClick={() => setImagesExpanded((v) => !v)}
+              style={{ fontSize: 12, padding: "3px 10px" }}
+            >
+              {imagesExpanded ? "▲" : "▼"} {allImages.length} foto{allImages.length !== 1 ? "s" : ""} {imagesExpanded ? "(ocultar)" : "(mostrar)"}
+            </button>
+            <span style={{ fontSize: 11, color: "#9ca3af" }}>
+              {Object.keys(row.imagePaths).length}/{allImages.length} enviadas
+            </span>
+          </div>
+          {imagesExpanded && (
+            <div className="batch-images-row">
+              {allImages.map((p) => (
+                <CompactImageZone
+                  key={p.id}
+                  label={p.label}
+                  uploading={row.uploadingId === p.id}
+                  previewUrl={row.imagePreviewUrls[p.id] ?? null}
+                  referenceUrl={p.preview_image_path ? templateFileToUrl(p.preview_image_path) : null}
+                  onFile={(file) => onImageChange(p.id, file)}
+                  onRemove={() =>
+                    onUpdate({
+                      imagePaths: Object.fromEntries(Object.entries(row.imagePaths).filter(([k]) => k !== p.id)),
+                      imagePreviewUrls: Object.fromEntries(Object.entries(row.imagePreviewUrls).filter(([k]) => k !== p.id)),
+                    })
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Section text accordion ── */}
