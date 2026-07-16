@@ -331,8 +331,13 @@ export default function BatchAiImprove({ template, rows, onContinue, onSkip }: P
 
                 {st.diff !== null && st.accepted === null && (
                   <div style={{ marginTop: 10 }}>
-                    {/* Warnings from sanitizer — show regardless of whether there were changes */}
-                    {st.warnings.length > 0 && (
+                    {/* Warnings from sanitizer/provider */}
+                    {st.warnings.some((w) => w.startsWith("provider_error")) && (
+                      <div style={{ fontSize: 11, color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 4, padding: "4px 10px", marginBottom: 6 }}>
+                        ✕ Erro ao chamar IA: {st.warnings.find((w) => w.startsWith("provider_error"))?.replace("provider_error:", "") ?? ""}
+                      </div>
+                    )}
+                    {st.warnings.filter((w) => !w.startsWith("provider_error")).length > 0 && (
                       <div style={{ fontSize: 11, color: "#b45309", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "4px 10px", marginBottom: 6 }}>
                         {st.warnings.includes("summarized") && "⚠ IA abreviou o texto — original restaurado. "}
                         {st.warnings.includes("hallucinated") && "⚠ IA reescreveu o conteúdo (alucinação) — original restaurado. "}

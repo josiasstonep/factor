@@ -123,8 +123,8 @@ def build_user_message(
     Text BASE comes first (grounds the model on what to preserve).
     Context is wrapped in explicit delimiters so weak models don't echo it.
     """
-    # Text base always first — this is what the model must output (adapted)
-    parts = [f"=== TEXTO BASE (reproduza este texto com adaptações mínimas) ===\n{text}\n=== FIM DO TEXTO BASE ==="]
+    # Text base always first — this is what the model must output (adapted or preserved)
+    parts = [f"=== TEXTO BASE ===\n{text}\n=== FIM DO TEXTO BASE ==="]
 
     context_lines: list[str] = []
 
@@ -350,6 +350,7 @@ async def improve_section_paragraphs(
     paragraphs = body.split("\n")
     all_warnings: list[str] = []
     improved_paras: list[str] = []
+    provider_error: str | None = None
 
     for para in paragraphs:
         stripped = para.strip()
@@ -364,9 +365,14 @@ async def improve_section_paragraphs(
             cleaned, warns = sanitize_ai_output(raw, para, has_context=bool(case_context))
             all_warnings.extend(warns)
             improved_paras.append(cleaned)
-        except Exception:
-            # On any provider error for a single paragraph, keep original
+        except Exception as exc:
+            # Surface the first provider error as a warning; keep original paragraph
+            if provider_error is None:
+                provider_error = str(exc)[:120]
             improved_paras.append(para)
+
+    if provider_error:
+        all_warnings.append(f"provider_error:{provider_error}")
 
     result = "\n".join(improved_paras)
     if signature:

@@ -3,7 +3,7 @@ import httpx
 from sidecar.ai_providers.base import build_system_prompt, build_user_message, register
 from sidecar.config import get_env_key
 
-_DEFAULT_MODEL = "gemini-2.0-flash"
+_DEFAULT_MODEL = "gemini-2.5-flash-lite"
 _API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
