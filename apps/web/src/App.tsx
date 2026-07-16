@@ -5,12 +5,13 @@ import BatchAiImprove from "./routes/BatchAiImprove";
 import BatchForm, { type RowState } from "./routes/BatchForm";
 import BatchPreview from "./routes/BatchPreview";
 import GenerationReview from "./routes/GenerationReview";
+import SettingsManager from "./routes/SettingsManager";
 import TemplateList from "./routes/TemplateList";
 import TemplateStructureEditor from "./routes/TemplateStructureEditor";
 import TemplateUpload from "./routes/TemplateUpload";
 
 // "home" is the template-selection screen (not part of the numbered wizard steps)
-type Step = "home" | "upload" | "structure" | "form" | "ai" | "preview" | "review";
+type Step = "home" | "settings" | "upload" | "structure" | "form" | "ai" | "preview" | "review";
 
 const WIZARD_STEPS: { key: Step; label: string }[] = [
   { key: "upload", label: "1. Upload" },
@@ -48,31 +49,47 @@ export default function App() {
     }
   }
 
-  const showWizard = step !== "home";
+  const showWizard = step !== "home" && step !== "settings";
+
+  function goHome() {
+    setTemplate(null);
+    setBatchRows(null);
+    setResult(null);
+    setStep("home");
+  }
 
   return (
     <div className="app-shell">
       {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ cursor: showWizard ? "pointer" : "default", margin: 0 }} onClick={() => {
-          if (showWizard) {
-            setTemplate(null);
-            setBatchRows(null);
-            setResult(null);
-            setStep("home");
-          }
-        }}>
+        <h1
+          style={{ cursor: step !== "home" ? "pointer" : "default", margin: 0 }}
+          onClick={() => { if (step !== "home") goHome(); }}
+        >
           Factor — Gerador de Laudos Periciais
         </h1>
-        <button
-          type="button"
-          className="secondary"
-          title="Configurações — Chaves de API"
-          onClick={() => setShowConfig(true)}
-          style={{ padding: "6px 12px", fontSize: 14 }}
-        >
-          ⚙ API
-        </button>
+        <span style={{ display: "flex", gap: 8 }}>
+          {(step === "home" || step === "settings") && (
+            <button
+              type="button"
+              className="secondary"
+              title="Gerenciar Peritos e Delegacias"
+              onClick={() => setStep(step === "settings" ? "home" : "settings")}
+              style={{ padding: "6px 12px", fontSize: 14 }}
+            >
+              👥 Peritos
+            </button>
+          )}
+          <button
+            type="button"
+            className="secondary"
+            title="Configurações — Chaves de API"
+            onClick={() => setShowConfig(true)}
+            style={{ padding: "6px 12px", fontSize: 14 }}
+          >
+            ⚙ API
+          </button>
+        </span>
       </div>
 
       {showWizard && (
@@ -92,6 +109,10 @@ export default function App() {
             );
           })}
         </div>
+      )}
+
+      {step === "settings" && (
+        <SettingsManager onBack={goHome} />
       )}
 
       {step === "home" && (
